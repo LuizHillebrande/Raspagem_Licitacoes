@@ -8,6 +8,7 @@ from time import sleep
 import tkinter as tk
 from tkinter import ttk, messagebox
 import re
+import pyautogui
 
 def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, mes_fim, ano_fim):
     driver = webdriver.Chrome()
@@ -51,7 +52,7 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
 
     links = driver.find_elements(By.XPATH, "//a[contains(@id, 'ResultadoBusca_dtgResultadoBusca_hlkObjeto')]")
 
-    # Coletar e remover duplicatas usando 'dict.fromkeys'
+    
     links_unicos = list(dict.fromkeys([link.get_attribute('href') for link in links]))
 
     # Imprimir os resultados
@@ -61,51 +62,62 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
         driver.get(link)
 
         homologacao_links = driver.find_elements(By.XPATH, "//a[contains(@onclick, 'HOMOLOGAÇÃO')]")
-
+        print(f'LINK DA HOMOLOAÇÃO:{homologacao_links}')
+        sleep(3)
         if homologacao_links:
-            for homologacao_link in homologacao_links:
-                homologacao_link.click()
-                sleep(2)
-
-                main_window = driver.current_window_handle
-
+            for i, homologacao_link in enumerate(homologacao_links, 1):
+                # Capturar o atributo 'onclick'
+                onclick_content = homologacao_link.get_attribute('onclick')
+                print(f'Conteúdo do onclick do link {i}: {onclick_content}')
                 
-                WebDriverWait(driver, 10).until(EC.new_window_is_opened(driver.window_handles))
-
-                #troca para janela do pop up
-                all_windows = driver.window_handles
-                popup_window = [window for window in all_windows if window != main_window][0]
-                driver.switch_to.window(popup_window)
-
-                try:
+                # Usar regex para capturar os parâmetros de ID dentro do onclick
+                match = re.search(r"AbreJanelaDetalhes\((\d+),(\d+),\"HOMOLOGAÇÃO\"\)", onclick_content)
+                
+                if match:
+                    # Extrair os parâmetros (ID da licitação e ID do evento)
+                    id_licitacao = match.group(1)
+                    id_evento = match.group(2)
+                    print(f"ID da Licitação: {id_licitacao}, ID do Evento: {id_evento}")
                     
-                    detalhes_texto = driver.find_element(By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao").text
+                    # Construir a URL para o link de homologação
+                    homologacao_url = f"https://www.imprensaoficial.com.br/ENegocios/popup/pop_e-nego_detalhes.aspx?IdLicitacao={id_licitacao}&IdEventoLicitacao={id_evento}"
+                    print(f"Abrindo link de HOMOLOGAÇÃO {i}: {homologacao_url}")
+                    
+                    # Abrir o link de homologação diretamente
+                    driver.get(homologacao_url)
+                    sleep(2)
+                    
+                    # Realizar ações depois de abrir o link, como pegar o conteúdo desejado
+                    try:
+                        detalhes_texto = driver.find_element(By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao").text
+                        print(f"Detalhes da Homologação {i}: {detalhes_texto}")
 
-                    cnpj_match = re.search(r'CNPJ\s*-\s*(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})', detalhes_texto)
-                    razao_social_match = re.search(r'EMPRESA\s*-\s*(.*?)(?=\s*CNPJ)', detalhes_texto)
+                        # Buscar o CNPJ usando regex
+                        cnpj_match = re.search(r'CNPJ\s*(?:Nº|N.º|:|-)?\s*(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})', detalhes_texto, re.IGNORECASE)
+                        if cnpj_match:
+                            cnpj = cnpj_match.group(1)
+                            print(f"CNPJ encontrado: {cnpj}")
+                        else:
+                            cnpj = "Não encontrado"
+                            print("CNPJ não encontrado.")
 
-                    cnpj = cnpj_match.group(1) if cnpj_match else "Não encontrado"
-                    razao_social = razao_social_match.group(1) if razao_social_match else "Não encontrado"
+                        # Capturar a Razão Social próxima ao CNPJ
+                        razao_social_match = re.search(r'(?:EMPRESA VENCEDORA:|a favor da empresa|EMPRESA\s*[:-]\s*)(.*?)(?=\s*CNPJ)', detalhes_texto, re.IGNORECASE)
+                        razao_social = razao_social_match.group(1).strip() if razao_social_match else "Não encontrado"
+                        print(f"Razão Social encontrada: {razao_social}")
 
-                    # Salva os dados na planilha
-                    ws.append([link, cnpj, razao_social])
-                    print(f"Dados capturados: CNPJ={cnpj}, Razão Social={razao_social}")
+                        # Salvar os dados na planilha ou outro destino
+                        ws.append([homologacao_url, cnpj, razao_social])
 
-                except Exception as e:
-                    print(f"Erro ao processar o link {link}: {e}")
-                
-                # Fechar o pop-up
-                driver.close()
-
-                # Voltar para a janela principal
-                driver.switch_to.window(main_window)
-
-                sleep(2)  # Tempo para garantir que a nova página carregue corretamente
-
+                    except Exception as e:
+                        print(f"Erro ao capturar detalhes: {e}")
+                else:
+                    print(f"Não foi possível extrair IDs do onclick do link {i}")
         else:
-            print(f"Não encontrado link de HOMOLOGAÇÃO na página {link}")
-                
-   
+            print('Nenhum link de HOMOLOGAÇÃO encontrado.')
+        
+        wb.save("dados_vencedores_diario_sp.xlsx")
+
     wb.save("dados_vencedores_diario_sp.xlsx")
     print("Planilha salva como 'dados_vencedores_diario_sp.xlsx'")
     
