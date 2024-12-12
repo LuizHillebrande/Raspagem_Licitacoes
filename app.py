@@ -6,6 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 import customtkinter as ctk
 from tkinter import messagebox
+import os
 
 # Configurar o tema dark
 ctk.set_appearance_mode("Dark")
@@ -14,12 +15,11 @@ ctk.set_default_color_theme("dark-blue")
 # Lista de sites de licitação/contratos
 sites_licitacao = ["Portal Nacional de Contratações Públicas", "Outros Sites de Licitação"]
 
-# Função chamada ao selecionar o site
 
 # Função para realizar a raspagem do Portal Nacional de Contratações Públicas
 def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
     driver = webdriver.Chrome()
-    
+
     # Criar a planilha para salvar os dados
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -28,6 +28,7 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
     for pagina in range(1, 1000):  # De 1 a 999
         url = f'https://pncp.gov.br/app/contratos?q=&pagina={pagina}'
         driver.get(url)
+        wb.save("dados_fornecedores.xlsx")
 
         # Aguardar o carregamento dos elementos
         time.sleep(3)  # Espera de 3 segundos para garantir que a página carregue
@@ -70,131 +71,7 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
                     ws.append([link, cnpj, razao_social])
                 except Exception as e:
                     print(f"Erro ao processar o botão {i}: {e}")
-
-        except Exception as e:
-            print(f"Erro ao acessar a página {pagina}: {e}")
-
-    # Salvar a planilha
-    wb.save("dados_fornecedores.xlsx")
-    driver.quit()
-    messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
-
-def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
-    driver = webdriver.Chrome()
-    
-    # Criar a planilha para salvar os dados
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.append(["Link", "CNPJ", "Razão Social"])  # Cabeçalho da planilha
-
-    for pagina in range(1, 1000):  # De 1 a 999
-        url = f'https://pncp.gov.br/app/contratos?q=&pagina={pagina}'
-        driver.get(url)
-
-        # Aguardar o carregamento dos elementos
-        time.sleep(3)  # Espera de 3 segundos para garantir que a página carregue
-
-        try:
-            # Encontrar os botões únicos
-            botoes = driver.find_elements(By.XPATH, "//a[contains(@class, 'br-item') and contains(@title, 'Acessar item.')]")
-            botoes_unicos = list(dict.fromkeys([botao.get_attribute('href') for botao in botoes]))  # Remove duplicatas
-            
-            print(f"Página {pagina}: Total de botões encontrados: {len(botoes_unicos)}")
-
-            for i, link in enumerate(botoes_unicos, start=1):
-                try:
-                    driver.get(link)
-                    time.sleep(2)  # Espera um pouco para a página carregar
-
-                    try:
-                        # Extrair o CNPJ
-                        cnpj_element = WebDriverWait(driver, 5).until(
-                            EC.presence_of_element_located((By.XPATH, "//strong[contains(text(), 'CNPJ/CPF:')]/following-sibling::span"))
-                        )
-                        cnpj = cnpj_element.text
-                        print(f"Botão {i}: CNPJ encontrado - {cnpj}")
-                    except Exception as e:
-                        print(f"Botão {i}: Erro ao extrair o CNPJ - {e}")
-                        cnpj = "Não encontrado"
-
-                    try:
-                        # Extrair a Razão Social
-                        razao_social_element = WebDriverWait(driver, 5).until(
-                            EC.presence_of_element_located((By.XPATH, "//strong[contains(text(), 'Nome/Razão social:')]/following-sibling::span"))
-                        )
-                        razao_social = razao_social_element.text
-                        print(f"Botão {i}: Razão social encontrada - {razao_social}")
-                    except Exception as e:
-                        print(f"Botão {i}: Erro ao extrair a Razão Social - {e}")
-                        razao_social = "Não encontrado"
-
-                    # Salvar os dados na planilha
-                    ws.append([link, cnpj, razao_social])
-                except Exception as e:
-                    print(f"Erro ao processar o botão {i}: {e}")
-
-        except Exception as e:
-            print(f"Erro ao acessar a página {pagina}: {e}")
-
-    # Salvar a planilha
-    wb.save("dados_fornecedores.xlsx")
-    driver.quit()
-    messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
-
-def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
-    driver = webdriver.Chrome()
-    
-    # Criar a planilha para salvar os dados
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.append(["Link", "CNPJ", "Razão Social"])  # Cabeçalho da planilha
-
-    for pagina in range(1, 1000):  # De 1 a 999
-        url = f'https://pncp.gov.br/app/contratos?q=&pagina={pagina}'
-        driver.get(url)
-
-        # Aguardar o carregamento dos elementos
-        time.sleep(3)  # Espera de 3 segundos para garantir que a página carregue
-
-        try:
-            # Encontrar os botões únicos
-            botoes = driver.find_elements(By.XPATH, "//a[contains(@class, 'br-item') and contains(@title, 'Acessar item.')]")
-            botoes_unicos = list(dict.fromkeys([botao.get_attribute('href') for botao in botoes]))  # Remove duplicatas
-            
-            print(f"Página {pagina}: Total de botões encontrados: {len(botoes_unicos)}")
-
-            for i, link in enumerate(botoes_unicos, start=1):
-                try:
-                    driver.get(link)
-                    time.sleep(2)  # Espera um pouco para a página carregar
-
-                    try:
-                        # Extrair o CNPJ
-                        cnpj_element = WebDriverWait(driver, 5).until(
-                            EC.presence_of_element_located((By.XPATH, "//strong[contains(text(), 'CNPJ/CPF:')]/following-sibling::span"))
-                        )
-                        cnpj = cnpj_element.text
-                        print(f"Botão {i}: CNPJ encontrado - {cnpj}")
-                    except Exception as e:
-                        print(f"Botão {i}: Erro ao extrair o CNPJ - {e}")
-                        cnpj = "Não encontrado"
-
-                    try:
-                        # Extrair a Razão Social
-                        razao_social_element = WebDriverWait(driver, 5).until(
-                            EC.presence_of_element_located((By.XPATH, "//strong[contains(text(), 'Nome/Razão social:')]/following-sibling::span"))
-                        )
-                        razao_social = razao_social_element.text
-                        print(f"Botão {i}: Razão social encontrada - {razao_social}")
-                    except Exception as e:
-                        print(f"Botão {i}: Erro ao extrair a Razão Social - {e}")
-                        razao_social = "Não encontrado"
-
-                    # Salvar os dados na planilha
-                    ws.append([link, cnpj, razao_social])
-                except Exception as e:
-                    print(f"Erro ao processar o botão {i}: {e}")
-
+          
         except Exception as e:
             print(f"Erro ao acessar a página {pagina}: {e}")
 
@@ -229,7 +106,7 @@ def carregar_cnpjs_de_arquivos(arquivos):
         wb = openpyxl.load_workbook(arquivo)
         ws = wb.active
         
-        # Supondo que o CNPJ esteja na segunda coluna (B)
+       
         for row in ws.iter_rows(min_row=2, max_col=2, values_only=True):  # Pular o cabeçalho
             cnpj = row[1] 
             if cnpj:
@@ -248,25 +125,31 @@ def salvar_cnpjs_unicos(cnpjs_unicos, nome_arquivo="cnpjs_unicos.xlsx"):
     wb.save(nome_arquivo)
     print(f"CNPJs únicos salvos em: {nome_arquivo}")
 
-
-arquivos = ["dados_fornecedores.xlsx", "dados_fornecedores_2.xlsx"]  # Liste os arquivos Excel aqui
-cnpjs_unicos = carregar_cnpjs_de_arquivos(arquivos)
-salvar_cnpjs_unicos(cnpjs_unicos)
-
-import customtkinter as ctk
-from tkinter import messagebox
-
 # Configurar o tema dark
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
 
 # Funções de cada ação (simplificadas para este exemplo)
 def iniciar_raspagem():
-    # Ao clicar em "Raspar Dados", abre uma nova janela de seleção de sites
     open_site_selection_window()
 
 def eliminar_cnpjs():
-    messagebox.showinfo("Eliminar CNPJs", "Iniciando eliminação de CNPJs duplicados.")
+     # Lista de arquivos que devem ser processados
+    arquivos = ["dados_fornecedores.xlsx", "dados_fornecedores_2.xlsx"]
+
+    # Verifica se os arquivos existem
+    arquivos_existentes = [arquivo for arquivo in arquivos if os.path.exists(arquivo)]
+
+    if not arquivos_existentes:
+        # Exibe mensagem de aviso e retorna
+        messagebox.showwarning("Atenção", "Nenhum arquivo de dados foi encontrado para eliminar CNPJs duplicados.")
+        return
+
+    cnpjs_unicos = carregar_cnpjs_de_arquivos(arquivos_existentes)
+
+
+    salvar_cnpjs_unicos(cnpjs_unicos)
+    messagebox.showinfo("Concluído", "CNPJs duplicados eliminados com sucesso!")
 
 def enviar_emails():
     messagebox.showinfo("Enviar E-mails", "Iniciando envio de e-mails.")
