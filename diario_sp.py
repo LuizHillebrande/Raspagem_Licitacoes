@@ -119,26 +119,22 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
             else:
                 print('Nenhum link de HOMOLOGAÇÃO encontrado.')
 
-        
-        driver.get(pagina_inicial_url)
-        print('Voltando para página inícial.', pagina_inicial_url)
-        sleep(5)
-        try:
-            botao_proxima = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//a[@id='content_content_content_ResultadoBusca_PaginadorCima_btnProxima']"))
-            )
-            botao_proxima.click()
-            sleep(3)
-        except Exception:
-            print("Não há mais páginas para processar.")
-            break  
+            if i == len(links_unicos): 
+                print("Último link da página encontrado. Voltando para a página inicial...")
+                driver.get(pagina_inicial_url)  
 
-    wb.save("dados_vencedores_diario_sp.xlsx")
-    print("Planilha salva como 'dados_vencedores_diario_sp.xlsx'")
+                print("Clicando no botão 'Próxima' para avançar...")
+                botao_proxima = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//a[@id='content_content_content_ResultadoBusca_PaginadorCima_btnProxima']"))
+                )
+                botao_proxima.click()
+
+        wb.save("dados_vencedores_diario_sp.xlsx")
+        print("Planilha salva como 'dados_vencedores_diario_sp.xlsx'")
     
-    sleep(10)
-    driver.quit()
-    print("Navegador fechado.")
+        sleep(10)
+        driver.quit()
+        print("Navegador fechado.")
 
 def capturar_datas():
     dia_inicio = combo_dia_inicio.get()
