@@ -49,6 +49,21 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
         EC.element_to_be_clickable((By.XPATH,"//input[@onclick='return verify();']"))
     )
     buscar.click()
+    try:
+        botoes_paginas = WebDriverWait(driver, 15).until(
+        EC.presence_of_all_elements_located(
+            (By.XPATH, "//a[contains(@id, 'PaginadorCima_btn') and contains(@href, '__doPostBack')]")
+            )
+        )
+        pagina_atual = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.XPATH, "//span[contains(@id, 'PaginadorBaixo_lblPaginaAtual')]"))
+        ).text
+        print(f"Página atual: {pagina_atual}")
+        print(f"N de botoes{botoes_paginas}")
+    except Exception as e:
+        print("Erro ao encontrar a página atual:", e)
+
+    sleep(10)
 
     links = driver.find_elements(By.XPATH, "//a[contains(@id, 'ResultadoBusca_dtgResultadoBusca_hlkObjeto')]")
 
@@ -115,6 +130,8 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
                     print(f"Não foi possível extrair IDs do onclick do link {i}")
         else:
             print('Nenhum link de HOMOLOGAÇÃO encontrado.')
+
+        
         
         wb.save("dados_vencedores_diario_sp.xlsx")
 
