@@ -118,6 +118,7 @@ def captura_link(driver, ws, wb, pagina_inicial_url):
     except Exception as e:
         print(f"Não há mais próxima página: {e}")
         return False  # Retorna False quando não há mais páginas
+    
 
 
 def capturar_datas():
