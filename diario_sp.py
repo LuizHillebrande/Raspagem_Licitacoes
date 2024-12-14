@@ -29,7 +29,7 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
     xpath_dia_inicio = f"//select[@id='content_content_content_Status_cboAberturaSecaoInicioDia']/option[@value='{dia_inicio}']"
     xpath_mes_inicio = f"//select[@id='content_content_content_Status_cboAberturaSecaoInicioMes']/option[@value='{mes_inicio}']"
     xpath_ano_inicio = f"//select[@id='content_content_content_Status_cboAberturaSecaoInicioAno']/option[@value='{ano_inicio}']"
-    
+
     WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_dia_inicio))).click()
     WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_mes_inicio))).click()
     WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_ano_inicio))).click()
@@ -44,102 +44,81 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
     WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_ano_fim))).click()
 
     sleep(3)
-    
-    buscar = WebDriverWait(driver,5).until(
-        EC.element_to_be_clickable((By.XPATH,"//input[@onclick='return verify();']"))
+    buscar = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.XPATH, "//input[@onclick='return verify();']"))
     )
     buscar.click()
     sleep(2)
+
+    # Página inicial
     pagina_inicial_url = driver.current_url
-    print('página que eu quero:',pagina_inicial_url)
+    print('Página inicial:', pagina_inicial_url)
 
-    #salvar n total de paginas
+    # Loop processando páginas
+    while True:
+        print("Extraindo dados da página atual...")
+        proxima_pagina = captura_link(driver, ws, wb, pagina_inicial_url)
 
-    captura_link()
+        if not proxima_pagina:
+            break  # Se não há mais próxima página, encerra o loop
 
-def captura_link(driver,ws,wb,pagina_inicial_url):  
+    wb.save("dados_vencedores_diario_sp.xlsx")
+    print("Planilha salva como 'dados_vencedores_diario_sp.xlsx'")
+    driver.quit()
+    print("Navegador fechado.")
+
+def captura_link(driver, ws, wb, pagina_inicial_url):
     links = driver.find_elements(By.XPATH, "//a[contains(@id, 'ResultadoBusca_dtgResultadoBusca_hlkObjeto')]")
     links_unicos = list(dict.fromkeys([link.get_attribute('href') for link in links]))
 
     print(f"Total de links encontrados nesta página: {len(links_unicos)}")
+
     for i, link in enumerate(links_unicos, start=1):
         print(f"Acessando Link {i}: {link}")
         driver.get(link)
 
         homologacao_links = driver.find_elements(By.XPATH, "//a[contains(@onclick, 'HOMOLOGAÇÃO')]")
-        print(f'LINK DA HOMOLOAÇÃO:{homologacao_links}')
-        sleep(3)
+        sleep(2)
         if homologacao_links:
-            for i, homologacao_link in enumerate(homologacao_links, 1):
-                # Capturar o atributo 'onclick'
+            for homologacao_link in homologacao_links:
                 onclick_content = homologacao_link.get_attribute('onclick')
-                print(f'Conteúdo do onclick do link {i}: {onclick_content}')
-                
-                # Usar regex para capturar os parâmetros de ID dentro do onclick
                 match = re.search(r"AbreJanelaDetalhes\((\d+),(\d+),\"HOMOLOGAÇÃO\"\)", onclick_content)
-                
                 if match:
-                    # Extrair os parâmetros (ID da licitação e ID do evento)
-                    id_licitacao = match.group(1)
-                    id_evento = match.group(2)
-                    print(f"ID da Licitação: {id_licitacao}, ID do Evento: {id_evento}")
-                    
-                    # Construir a URL para o link de homologação
+                    id_licitacao, id_evento = match.groups()
                     homologacao_url = f"https://www.imprensaoficial.com.br/ENegocios/popup/pop_e-nego_detalhes.aspx?IdLicitacao={id_licitacao}&IdEventoLicitacao={id_evento}"
-                    print(f"Abrindo link de HOMOLOGAÇÃO {i}: {homologacao_url}")
-                    
-                    # Abrir o link de homologação diretamente
+                    print(f"Abrindo link de HOMOLOGAÇÃO: {homologacao_url}")
                     driver.get(homologacao_url)
                     sleep(2)
-                    
-                    # Realizar ações depois de abrir o link, como pegar o conteúdo desejado
+
                     try:
                         detalhes_texto = driver.find_element(By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao").text
-                        print(f"Detalhes da Homologação {i}: {detalhes_texto}")
+                        cnpj_match = re.search(r'CNPJ\s*(?:Nº|N.º|:|-)?\s*(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})', detalhes_texto)
+                        cnpj = cnpj_match.group(1) if cnpj_match else "Não encontrado"
 
-                        # Buscar o CNPJ usando regex
-                        cnpj_match = re.search(r'CNPJ\s*(?:Nº|N.º|:|-)?\s*(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})', detalhes_texto, re.IGNORECASE)
-                        if cnpj_match:
-                            cnpj = cnpj_match.group(1)
-                            print(f"CNPJ encontrado: {cnpj}")
-                        else:
-                            cnpj = "Não encontrado"
-                            print("CNPJ não encontrado.")
-
-                        # Capturar a Razão Social próxima ao CNPJ
-                        razao_social_match = re.search(r'(?:EMPRESA VENCEDORA:|a favor da empresa|EMPRESA\s*[:-]\s*)(.*?)(?=\s*CNPJ)', detalhes_texto, re.IGNORECASE)
+                        razao_social_match = re.search(r'(?:EMPRESA VENCEDORA:|a favor da empresa|EMPRESA\s*[:-]\s*)(.*?)(?=\s*CNPJ)', detalhes_texto)
                         razao_social = razao_social_match.group(1).strip() if razao_social_match else "Não encontrado"
-                        print(f"Razão Social encontrada: {razao_social}")
 
-                        # Salvar os dados na planilha ou outro destino
                         ws.append([homologacao_url, cnpj, razao_social])
                         wb.save("dados_vencedores_diario_sp.xlsx")
-
                     except Exception as e:
                         print(f"Erro ao capturar detalhes: {e}")
-                else:
-                    print(f"Não foi possível extrair IDs do onclick do link {i}")
-        else:
-            print('Nenhum link de HOMOLOGAÇÃO encontrado.')
 
-        if i == len(links_unicos): 
-            print("Último link da página encontrado. Voltando para a página inicial...")
-            driver.get(pagina_inicial_url)  
+        # Voltar à página inicial
+        driver.get(pagina_inicial_url)
+        sleep(2)
 
-            print("Clicando no botão 'Próxima' para avançar...")
-            botao_proxima = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//a[@id='content_content_content_ResultadoBusca_PaginadorCima_btnProxima']"))
-            )
-            botao_proxima.click()
-            sleep(2)
-            captura_link()
+    # Tentar clicar em "Próxima" ao final da página
+    try:
+        botao_proxima = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//a[@id='content_content_content_ResultadoBusca_PaginadorCima_btnProxima']"))
+        )
+        botao_proxima.click()
+        sleep(2)
+        return True  # Retorna True para indicar que há próxima página
+    except Exception as e:
+        print(f"Não há mais próxima página: {e}")
+        return False  # Retorna False quando não há mais páginas
 
-    wb.save("dados_vencedores_diario_sp.xlsx")
-    print("Planilha salva como 'dados_vencedores_diario_sp.xlsx'")
-
-    sleep(10)
-    driver.quit()
-    print("Navegador fechado.")
 
 def capturar_datas():
     dia_inicio = combo_dia_inicio.get()
