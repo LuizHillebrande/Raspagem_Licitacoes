@@ -1,0 +1,48 @@
+import openpyxl
+import customtkinter as ctk
+from tkinter import messagebox
+import os
+
+def carregar_cnpjs_de_arquivos(arquivos):
+    cnpjs_unicos = set()  # Usando um set para garantir que não haja CNPJs duplicados
+
+    for arquivo in arquivos:
+        wb = openpyxl.load_workbook(arquivo)
+        ws = wb.active
+        
+       
+        for row in ws.iter_rows(min_row=2, max_col=2, values_only=True):  # Pular o cabeçalho
+            cnpj = row[1] 
+            if cnpj:
+                cnpjs_unicos.add(cnpj.strip())  # Adiciona o CNPJ ao set (remover espaços extras)
+
+    return cnpjs_unicos
+
+def salvar_cnpjs_unicos(cnpjs_unicos, nome_arquivo="cnpjs_unicos.xlsx"):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["CNPJ"])  # Cabeçalho da planilha
+
+    for cnpj in cnpjs_unicos:
+        ws.append([cnpj])
+
+    wb.save(nome_arquivo)
+    print(f"CNPJs únicos salvos em: {nome_arquivo}")
+
+def eliminar_cnpjs():
+     # Lista de arquivos que devem ser processados
+    arquivos = ["dados_fornecedores.xlsx", "dados_fornecedores_2.xlsx"]
+
+    # Verifica se os arquivos existem
+    arquivos_existentes = [arquivo for arquivo in arquivos if os.path.exists(arquivo)]
+
+    if not arquivos_existentes:
+        # Exibe mensagem de aviso e retorna
+        messagebox.showwarning("Atenção", "Nenhum arquivo de dados foi encontrado para eliminar CNPJs duplicados.")
+        return
+
+    cnpjs_unicos = carregar_cnpjs_de_arquivos(arquivos_existentes)
+
+
+    salvar_cnpjs_unicos(cnpjs_unicos)
+    messagebox.showinfo("Concluído", "CNPJs duplicados eliminados com sucesso!")
