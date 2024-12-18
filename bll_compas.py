@@ -7,7 +7,7 @@ import time
 import pyautogui
 from selenium.webdriver.support.ui import Select
 from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException
-
+from selenium.webdriver.common.action_chains import ActionChains
 
 def limpa_campo():
     for _ in range(10):
@@ -119,13 +119,32 @@ def extrair_bllcompras():
         except Exception:
             print("Elemento <b> não encontrado. Continuando o download...")
 
-        download_buttons = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-download")
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.TAG_NAME, "tr"))
+        )
 
-        for button in download_buttons:
-            parent = button.find_element(By.XPATH, "./ancestor::a")  # Encontrando o link pai do ícone, por exemplo
-            if "vencedores do processo" in parent.text.lower():
-                parent.click()
-                break
+        linhas = driver.find_elements(By.TAG_NAME, "tr")
+
+        for linha in linhas:
+            try:
+                if "VENCEDORES DO PROCESSO" in linha.text:
+                    print("Linha encontrada com 'VENCEDORES DO PROCESSO'.")
+
+                    # Procura pelo ícone de download dentro da linha
+                    botao_download = linha.find_element(By.CSS_SELECTOR, "i.fas.fa-download")
+                    
+                    # Clica no botão de download
+                    driver.execute_script("arguments[0].scrollIntoView(true);", botao_download)
+                    time.sleep(1)
+                    
+                    print("Download iniciado com sucesso.")
+                    ActionChains(driver).move_to_element(botao_download).click().perform()
+
+                    time.sleep(25)
+
+                    break  # Sai do loop após encontrar e clicar no botão
+            except Exception as e:
+                 print(f"Erro ao processar a linha: {e}")
         
         pyautogui.hotkey('ctrl','w')
         driver.switch_to.window(original_window)
