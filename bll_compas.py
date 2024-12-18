@@ -60,6 +60,7 @@ def extrair_bllcompras():
     )
 
     original_window = driver.current_window_handle
+    original_url = driver.current_url
 
     elements = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
     for index, element in enumerate(elements, start=1):
@@ -71,23 +72,33 @@ def extrair_bllcompras():
         )
         element.click()
         time.sleep(2)
-
-        all_windows_before = driver.window_handles  # Pega todas as janelas antes de clicar
-        WebDriverWait(driver, 5).until(
-            lambda driver: len(driver.window_handles) > len(all_windows_before)  # Aguardar até que o número de janelas mude
-        )
-        
-        relatorios_button = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.XPATH, "//button[@title='Relatórios']"))
-        )
-        relatorios_button.click()
-
-
+        print("BOTAO 1 CLICADO")
         
 
-        # Agora, mude para a nova janela
+        WebDriverWait(driver, 10).until(
+        lambda driver: len(driver.window_handles) > 1  # Garantir que uma nova janela foi aberta
+        )
+        
+        # Trocar para a nova janela
         new_window = [window for window in driver.window_handles if window != original_window][0]
         driver.switch_to.window(new_window)
+
+        current_url = driver.current_url
+        print("URL da nova janela:", current_url)
+
+        try:
+            # Exemplo: esperando por um botão que deve aparecer na nova janela
+            relatorios_button = WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.XPATH, "//button[@title='Relatórios']"))
+            )
+            print("Elemento 'Relatórios' apareceu, a página foi carregada corretamente.")
+            
+            # Clicar no botão 'Relatórios' caso apareça
+            relatorios_button.click()
+            time.sleep(2)
+            
+        except Exception as e:
+            print("O elemento 'Relatórios' não apareceu ou houve um erro:", e)
         
         download_buttons = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-download")
 
@@ -96,6 +107,9 @@ def extrair_bllcompras():
             if "vencedores do processo" in parent.text.lower():
                 parent.click()
                 break
+        
+        pyautogui.hotkey('ctrl','w')
+        driver.switch_to.window(original_window)
 
     # Espera um pouco mais para garantir que o download seja iniciado
     time.sleep(5)  # Pausa de 5 segundos antes de fechar o driver
