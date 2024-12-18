@@ -38,7 +38,7 @@ def extrair_bllcompras():
     )
     public_inicio.click()
     limpa_campo()
-    public_inicio.send_keys('17/09/2024')
+    public_inicio.send_keys('17/05/2024')
 
     # Aguarda até que o campo de data final seja clicável
     public_final = WebDriverWait(driver, 5).until(
@@ -65,6 +65,9 @@ def extrair_bllcompras():
     elements = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
     for index, element in enumerate(elements, start=1):
         print(f"Elemento {index} de {len(elements)}")
+
+        elements = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
+        element = elements[index]
         
         # Reencontrando o elemento antes de clicar para garantir que ele ainda é válido
         element = WebDriverWait(driver, 10).until(
@@ -100,6 +103,22 @@ def extrair_bllcompras():
         except Exception as e:
             print("O elemento 'Relatórios' não apareceu ou houve um erro:", e)
         
+        try:
+            # Aguarda a presença do elemento <b> e verifica o texto
+            mensagem_elemento = WebDriverWait(driver, 3).until(
+                EC.presence_of_element_located((By.XPATH, "//b"))
+            )
+            mensagem_texto = mensagem_elemento.text
+
+            # Verifica o conteúdo do texto
+            if "relatórios ainda não estão disponíveis" in mensagem_texto:
+                print("Relatórios não estão disponíveis. Pulando para o próximo item...")
+                pyautogui.hotkey('ctrl','w')
+                driver.switch_to.window(original_window)
+                continue  # Passa para o próximo elemento da lista
+        except Exception:
+            print("Elemento <b> não encontrado. Continuando o download...")
+
         download_buttons = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-download")
 
         for button in download_buttons:
