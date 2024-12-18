@@ -1,101 +1,119 @@
-import requests
-from bs4 import BeautifulSoup
-import openpyxl
 import os
+import pandas as pd
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+from time import sleep
 
-def buscar_emails_por_cnpj(caminho_excel, site_origem):
-    """
-    Realiza a busca de e-mails no site 'cnpja.com/office/{CNPJ}' com base nos CNPJs encontrados no Excel.
-    
-    Parâmetros:
-        caminho_excel (str): Caminho do arquivo Excel com os CNPJs.
-        site_origem (str): Nome do site que originou o arquivo (para identificação).
-    """
-    if not os.path.exists(caminho_excel):
-        print(f"Arquivo não encontrado: {caminho_excel}")
-        return
+def consulta_cnpj_gratis():
+    arquivos = [
+        "dados_fornecedores.xlsx",
+        "dados_fornecedores_2.xlsx",
+        "dados_fornecedores_3.xlsx",
+        "dados_fornecedores_4.xlsx",
+        "dados_fornecedores_5.xlsx"
+    ]
 
-    # Abrir o Excel e ler os CNPJs da coluna 2
-    workbook = openpyxl.load_workbook(caminho_excel)
-    sheet = workbook.active
+    # Configuração do Selenium
+    options = webdriver.ChromeOptions()
+    options.add_argument("--start-maximized")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-    # Lista para armazenar os CNPJs e e-mails encontrados
-    resultados = []
-
-    print(f"Iniciando busca de e-mails para CNPJs do site: {site_origem}...")
-    
-    for row in sheet.iter_rows(min_row=2, max_col=2, values_only=True):  # Começa na linha 2, coluna 2
-        cnpj = row[1]
-        if cnpj:
-            print(f"Buscando e-mail para CNPJ: {cnpj}")
-            email = buscar_email_cnpja(cnpj)
-            resultados.append((cnpj, email))
-    
-    # Salvar os resultados em um novo Excel
-    salvar_emails_excel(resultados, site_origem)
-    print(f"Busca concluída! Resultados salvos.")
-
-def buscar_email_cnpja(cnpj):
-    """
-    Faz a busca de um CNPJ no site 'cnpja.com/office/{CNPJ}' e retorna o e-mail encontrado.
-    """
-    url = f"https://cnpja.com/office/{cnpj}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-    }
+    def limpar_cnpj(cnpj):
+        """Remove caracteres indesejados do CNPJ."""
+        return ''.join(filter(str.isdigit, str(cnpj)))  # Mantém apenas dígitos
 
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
+        for arquivo in arquivos:
+            if os.path.exists(arquivo):  # Verifica se o arquivo existe
+                print(f"Lendo arquivo: {arquivo}")
+                # Ler o arquivo
+                df = pd.read_excel(arquivo)
 
-            # Extrai o e-mail da página (ajuste conforme a estrutura real do site)
-            email_tag = soup.find("a", href=lambda href: href and "mailto:" in href)
-            if email_tag:
-                email = email_tag.get("href").replace("mailto:", "").strip()
-                return email
+                # Iterar sobre a coluna 1 (índice 1 no Python)
+                for cnpj in df.iloc[:, 1]:  # Segunda coluna do arquivo
+                    cnpj_limpo = limpar_cnpj(cnpj)  # Limpar o CNPJ
+                    if cnpj_limpo:  # Garantir que o CNPJ não esteja vazio
+                        link = f"https://consulta.guru/consultar-cnpj-gratis/{cnpj_limpo}"
+                        print(f"Acessando: {link}")
+
+                        # Acessar o link
+                        driver.get(link)
+                        sleep(4)  # Pausa para garantir o carregamento da página
+
             else:
-                return "E-mail não encontrado"
-        else:
-            print(f"Erro ao acessar {url} (Status: {response.status_code})")
-            return "Erro na requisição"
-    except Exception as e:
-        print(f"Erro ao buscar CNPJ {cnpj}: {e}")
-        return "Erro ao buscar"
+                print(f"Arquivo não encontrado: {arquivo}")
+    finally:
+        driver.quit()
 
-def salvar_emails_excel(resultados, site_origem):
-    """
-    Salva os resultados (CNPJs e e-mails) em um arquivo Excel.
-    """
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.append(["CNPJ", "E-mail"])
+def consulta_cnpj_ja():
+    arquivos = [
+        "dados_fornecedores.xlsx",
+        "dados_fornecedores_2.xlsx",
+        "dados_fornecedores_3.xlsx",
+        "dados_fornecedores_4.xlsx",
+        "dados_fornecedores_5.xlsx"
+    ]
 
-    for cnpj, email in resultados:
-        sheet.append([cnpj, email])
+    options = webdriver.ChromeOptions()
+    options.add_argument("--start-maximized")
 
-    nome_arquivo = f"emails_{site_origem}.xlsx"
-    workbook.save(nome_arquivo)
-    print(f"Resultados salvos em: {nome_arquivo}")
+    def limpar_cnpj(cnpj):
+        """Remove caracteres indesejados do CNPJ."""
+        return ''.join(filter(str.isdigit, str(cnpj)))  # Mantém apenas dígitos
 
-# Exemplo de integração com base no site selecionado
-def executar_busca_emails(site_origem):
-    """
-    Determina qual arquivo Excel usar com base no site clicado.
-    """
-    arquivos_sites = {
-        "site1": "dados_site1.xlsx",
-        "site2": "dados_site2.xlsx",
-        "site3": "dados_site3.xlsx",
-        "site4": "dados_site4.xlsx",
-        "portal_nacional": "dados_pncp.xlsx"
-    }
+    resultados = []
 
-    caminho_excel = arquivos_sites.get(site_origem)
-    if caminho_excel:
-        buscar_emails_por_cnpj(caminho_excel, site_origem)
-    else:
-        print("Site não reconhecido!")
+    try:
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        consulta_contador = 0
 
+        for arquivo in arquivos:
+            if os.path.exists(arquivo):  # Verifica se o arquivo existe
+                print(f"Lendo arquivo: {arquivo}")
+                df = pd.read_excel(arquivo)
 
-buscar_emails_por_cnpj()
+                for cnpj in df.iloc[:, 1]:  # Segunda coluna do arquivo
+                    cnpj_limpo = limpar_cnpj(cnpj)
+                    if cnpj_limpo:
+                        link = f"https://cnpja.com/office/{cnpj_limpo}"
+                        print(f"Acessando: {link}")
+
+                        driver.get(link)
+                        sleep(2)  # Pausa para o carregamento da página
+
+                        try:
+                            # Espera o email aparecer na página, usando XPath para capturar texto com "@"
+                            email_element = WebDriverWait(driver, 10).until(
+                                EC.presence_of_element_located((By.XPATH, "//span[contains(text(), '@')]"))
+                            )
+                            email = email_element.text.strip()  # Extrai o texto do email
+                            print(f"Email encontrado para {cnpj_limpo}: {email}")
+                        except Exception as e:
+                            email = "Não encontrado"
+                            print(f"Email não encontrado para {cnpj_limpo}: {e}")
+
+                        # Adiciona o resultado à lista
+                        resultados.append({"CNPJ": cnpj_limpo, "Email": email})
+
+                        df_resultados = pd.DataFrame(resultados)
+                        df_resultados.to_excel("resultado_cnpja.xlsx", index=False)
+                        print("Resultados salvos em 'resultado_cnpja.xlsx'")
+
+                        consulta_contador += 1
+
+                        if consulta_contador % 5 == 0:  # A cada 5 consultas
+                            print("Aguardando 60 segundos para evitar bloqueio...")
+                            sleep(60)  # Aguarda 1 minuto
+    finally:
+        driver.quit()
+    
+    # Salvar os resultados em um arquivo Excel
+    df_resultados = pd.DataFrame(resultados)
+    df_resultados.to_excel("resultado_cnpja.xlsx", index=False)
+    print("Resultados salvos em 'resultado_cnpja.xlsx'")
+
+consulta_cnpj_ja()
