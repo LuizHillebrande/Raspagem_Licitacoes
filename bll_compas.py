@@ -124,29 +124,48 @@ def extrair_bllcompras():
         )
 
         linhas = driver.find_elements(By.TAG_NAME, "tr")
+    
 
         for linha in linhas:
             try:
-                if "VENCEDORES DO PROCESSO" in linha.text:
+                # Verifica se a linha contém o texto "VENCEDORES DO PROCESSO"
+                if "VENCEDORES DO PROCESSO" in linha.text.upper():
                     print("Linha encontrada com 'VENCEDORES DO PROCESSO'.")
 
-                    # Procura pelo ícone de download dentro da linha
-                    botao_download = linha.find_element(By.CSS_SELECTOR, "i.fas.fa-download")
-                    
-                    # Clica no botão de download
-                    driver.execute_script("arguments[0].scrollIntoView(true);", botao_download)
-                    time.sleep(1)
-                    
-                    print("Download iniciado com sucesso.")
-                    ActionChains(driver).move_to_element(botao_download).click().perform()
+                    # Procura todas as tags <a> com o atributo 'download' dentro da linha
+                    links_com_download = linha.find_elements(By.CSS_SELECTOR, "a[download]")
+                    print(f"Total de links com 'download' encontrados: {len(links_com_download)}")
 
-                    time.sleep(25)
+                    # Itera sobre os links com atributo 'download'
+                    for link in links_com_download:
+                        # Verifica se o atributo 'download' ou texto contém "VENCEDORES DO PROCESSO"
+                        if "VencedoresProcesso" in link.get_attribute("download"):
+                            print("Link correto encontrado com 'VencedoresProcesso' no atributo 'download'.")
 
-                    break  # Sai do loop após encontrar e clicar no botão
+                            try:
+                                botao_download = link.find_element(By.CSS_SELECTOR, "i.fas.fa-download")
+                                print("Botão de download encontrado. Tentando clicar...")
+
+                                # Realiza o scroll até o botão para garantir que ele esteja visível
+                                driver.execute_script("arguments[0].scrollIntoView(true);", botao_download)
+                                time.sleep(1)
+
+                                # Realiza o clique com ActionChains
+                                ActionChains(driver).move_to_element(botao_download).click().perform()
+                                print("Download iniciado com sucesso.")
+                                time.sleep(5)  # Espera o download começar
+                                break  # Interrompe o loop após encontrar e clicar no botão correto
+
+                            except Exception as e:
+                                print(f"Erro ao tentar clicar no ícone de download: {e}")
+                        else:
+                            print("Link ignorado, não corresponde ao 'VencedoresProcesso'.")
+
             except Exception as e:
-                 print(f"Erro ao processar a linha: {e}")
-        
-        pyautogui.hotkey('ctrl','w')
+                print(f"Erro ao processar a linha: {e}")
+
+        # Fecha a aba atual e retorna à aba original
+        pyautogui.hotkey('ctrl', 'w')
         driver.switch_to.window(original_window)
 
     # Espera um pouco mais para garantir que o download seja iniciado
