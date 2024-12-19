@@ -12,6 +12,7 @@ import os
 import re
 import pdfplumber
 import pandas as pd
+import customtkinter as ctk
 
 def limpa_campo():
     for _ in range(10):
@@ -19,17 +20,23 @@ def limpa_campo():
     for _ in range(10):
         pyautogui.press('backspace')
 
-def extrair_bllcompras():
+def extrair_bllcompras(data_inicio, data_fim, status_processo):
     current_dir = os.getcwd()
-    download_dir = os.path.join(current_dir, "vencedores_bll_compras_homologado")
+    if status_processo == "HOMOLOGADO":
+        pasta_destino = os.path.join(current_dir, "vencedores_bll_compras_homologado")
+    elif status_processo == "ADJUDICADO":
+        pasta_destino = os.path.join(current_dir, "vencedores_bll_compras_adjudicado")
+    else:
+        print(f"Erro: Status de processo inválido: {status_processo}")
+        return
 
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
-        print(f"Pasta criada: {download_dir}")
-
+    # Verifica se a pasta existe, se não, cria a pasta
+    if not os.path.exists(pasta_destino):
+        os.makedirs(pasta_destino)
+        print(f"Pasta criada: {pasta_destino}")
     chrome_options = webdriver.ChromeOptions()
     prefs = {
-        "download.default_directory": download_dir,  # Define o diretório atual
+        "download.default_directory": pasta_destino,  # Define o diretório atual
         "download.prompt_for_download": False,      # Não perguntar antes de baixar
         "download.directory_upgrade": True,
         "safebrowsing.enabled": True                # Ativa o download seguro
@@ -44,7 +51,7 @@ def extrair_bllcompras():
         EC.presence_of_element_located((By.ID, "fkStatus"))
     )
     select = Select(select_element)
-    select.select_by_visible_text("HOMOLOGADO")
+    select.select_by_visible_text(status_processo)
 
     # Aguarda até que o botão de busca avançada seja clicável
     busca_avancada = WebDriverWait(driver, 5).until(
@@ -52,21 +59,20 @@ def extrair_bllcompras():
     )
     busca_avancada.click()
 
-    # Aguarda até que o campo de data de início seja clicável
     public_inicio = WebDriverWait(driver, 5).until(
         EC.element_to_be_clickable((By.XPATH, "//input[@data-target='#DateStart']"))
     )
     public_inicio.click()
-    limpa_campo()
-    public_inicio.send_keys('17/05/2024')
+    public_inicio.clear()
+    public_inicio.send_keys(data_inicio)
 
-    # Aguarda até que o campo de data final seja clicável
+    # Preencher a data final
     public_final = WebDriverWait(driver, 5).until(
         EC.element_to_be_clickable((By.XPATH, "//input[@data-target='#DateEnd']"))
     )
     public_final.click()
-    limpa_campo()
-    public_final.send_keys('20/10/2024')
+    public_final.clear()
+    public_final.send_keys(data_fim)
 
     # Aguarda até que o ícone de pesquisa seja clicável
     icon = WebDriverWait(driver, 5).until(
@@ -197,9 +203,13 @@ def extrair_bllcompras():
     
     driver.quit()  # Fechamento do driver após a execução
 
-def extrair_cnpjs_pasta(pasta):
+def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
     """
     Extrai CNPJs de todos os PDFs em uma pasta específica e salva em um arquivo Excel.
+    
+    :param pasta: Caminho da pasta contendo os PDFs
+    :param nome_arquivo_saida: Nome do arquivo Excel de saída onde os CNPJs serão salvos
+    :param label_erro: Widget de erro para exibir mensagens na interface
     """
     # Padrão regex para capturar CNPJs
     padrao_cnpj = r'\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b'
@@ -231,80 +241,107 @@ def extrair_cnpjs_pasta(pasta):
     cnpjs_unicos = list(set(cnpjs_encontrados))
 
     # Exibe todos os CNPJs encontrados
-    print("\nCNPJs encontrados:")
-    for cnpj in cnpjs_unicos:
-        print(cnpj)
-
-    # Salva os CNPJs em um arquivo Excel
-    caminho_saida = os.path.join("dados_vencedores_homologados_bll_compras.xlsx")
-    df = pd.DataFrame(cnpjs_unicos, columns=["CNPJs"])
-    df.to_excel(caminho_saida, index=False)
-
-    print(f"\nCNPJs salvos em: {caminho_saida}")
-
-# Caminho da pasta onde estão os PDFs
-pasta_pdfs = os.getcwd()  # Diretório atual
-pasta_vencedores = os.path.join(pasta_pdfs, "vencedores_bll_compras_homologados")
-
-if not os.path.exists(pasta_vencedores):
-    os.makedirs(pasta_vencedores)
-    print(f"Pasta criada: {pasta_vencedores}")
+    if cnpjs_unicos:
+        print("\nCNPJs encontrados:")
+        for cnpj in cnpjs_unicos:
+            print(cnpj)
+        
+        # Salva os CNPJs em um arquivo Excel
+        caminho_saida = os.path.join(os.getcwd(), nome_arquivo_saida)  # Caminho completo para o arquivo
+        df = pd.DataFrame(cnpjs_unicos, columns=["CNPJs"])
+        df.to_excel(caminho_saida, index=False)
+        print(f"\nCNPJs salvos em: {caminho_saida}")
+        
+        # Atualiza a interface com uma mensagem de sucesso
+        label_erro.configure(text=f"CNPJs extraídos e salvos em {nome_arquivo_saida}", text_color="green")
+    else:
+        label_erro.configure(text="Nenhum CNPJ encontrado nos arquivos PDFs.", text_color="red")
 
 
-extrair_cnpjs_pasta(pasta_vencedores)
+# Função para ser chamada quando o botão "Extrair CNPJ" for clicado
+def extrair_cnpjs(label_erro, tipo):
+    if tipo == 'homologados':
+        pasta_vencedores = os.path.join(os.getcwd(), "vencedores_bll_compras_homologado")
+        nome_arquivo_saida = "dados_vencedores_homologados_bll_compras.xlsx"
+    elif tipo == 'adjudicados':
+        pasta_vencedores = os.path.join(os.getcwd(), "vencedores_bll_compras_adjudicado")
+        nome_arquivo_saida = "dados_vencedores_adjudicados_bll_compras.xlsx"
+    else:
+        label_erro.configure(text="Tipo inválido.", text_color="red")
+        return
 
-def extrair_cnpjs_pasta_ajudicado(pasta):
-    """
-    Extrai CNPJs de todos os PDFs em uma pasta específica e salva em um arquivo Excel.
-    """
-    # Padrão regex para capturar CNPJs
-    padrao_cnpj = r'\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b'
-    
-    # Lista para armazenar os CNPJs encontrados
-    cnpjs_encontrados = []
+    if os.path.exists(pasta_vencedores):
+        extrair_cnpjs_pasta(pasta_vencedores, nome_arquivo_saida, label_erro)
+    else:
+        label_erro.configure(text="Pasta de vencedores não encontrada!", text_color="red")
 
-    # Itera sobre os arquivos na pasta
-    for arquivo in os.listdir(pasta):
-        if arquivo.endswith(".pdf"):
-            caminho_arquivo = os.path.join(pasta, arquivo)
-            print(f"Processando: {caminho_arquivo}")
+def criar_interface():
+    def iniciar_busca():
+        # Coleta os valores da interface
+        data_inicio = entry_data_inicio.get()
+        data_fim = entry_data_fim.get()
+        status_processo = combo_status.get()
 
-            # Abre o PDF e extrai texto
-            try:
-                with pdfplumber.open(caminho_arquivo) as pdf:
-                    for pagina in pdf.pages:
-                        texto = pagina.extract_text()
-                        if texto:
-                            # Procura por CNPJs no texto
-                            cnpjs = re.findall(padrao_cnpj, texto)
-                            if cnpjs:
-                                print(f"CNPJs encontrados no arquivo {arquivo}: {cnpjs}")
-                                cnpjs_encontrados.extend(cnpjs)
-            except Exception as e:
-                print(f"Erro ao processar {arquivo}: {e}")
+        # Validação simples
+        if not data_inicio or not data_fim or not status_processo:
+            label_erro.configure(text="Preencha todos os campos!", text_color="red")
+            return
+        else:
+            label_erro.configure(text="Executando busca...", text_color="green")
+            root.update()
 
-    # Remove duplicatas de CNPJs
-    cnpjs_unicos = list(set(cnpjs_encontrados))
+        # Executa o programa principal
+        extrair_bllcompras(data_inicio, data_fim, status_processo)
 
-    # Exibe todos os CNPJs encontrados
-    print("\nCNPJs encontrados:")
-    for cnpj in cnpjs_unicos:
-        print(cnpj)
+       
 
-    # Salva os CNPJs em um arquivo Excel
-    caminho_saida = os.path.join("dados_vencedores_ajudicados_bll_compras.xlsx")
-    df = pd.DataFrame(cnpjs_unicos, columns=["CNPJs"])
-    df.to_excel(caminho_saida, index=False)
+    # Configuração da interface
+    root = ctk.CTk()
+    root.title("Busca BLL Compras")
+    root.geometry("400x300")
+    ctk.set_appearance_mode("Light")
 
-    print(f"\nCNPJs salvos em: {caminho_saida}")
+    # Widgets
+    label_titulo = ctk.CTkLabel(root, text="Buscar Processos BLL Compras", font=("Arial", 16, "bold"))
+    label_titulo.pack(pady=10)
 
-# Caminho da pasta onde estão os PDFs
-pasta_pdfs_ajudicados= os.getcwd()  # Diretório atual
-pasta_vencedores_ajudicados = os.path.join(pasta_pdfs, "vencedores_bll_compras_ajudicados")
+    # Campo para data inicial
+    label_data_inicio = ctk.CTkLabel(root, text="Data Inicial (DD/MM/AAAA):")
+    label_data_inicio.pack()
+    entry_data_inicio = ctk.CTkEntry(root, placeholder_text="17/05/2024")
+    entry_data_inicio.pack(pady=5)
 
-if not os.path.exists(pasta_vencedores):
-    os.makedirs(pasta_vencedores)
-    print(f"Pasta criada: {pasta_vencedores}")
+    # Campo para data final
+    label_data_fim = ctk.CTkLabel(root, text="Data Final (DD/MM/AAAA):")
+    label_data_fim.pack()
+    entry_data_fim = ctk.CTkEntry(root, placeholder_text="20/10/2024")
+    entry_data_fim.pack(pady=5)
 
-extrair_cnpjs_pasta_ajudicado(pasta_vencedores)
+    # Dropdown para selecionar "Homologado" ou "Adjudicado"
+    label_status = ctk.CTkLabel(root, text="Status do Processo:")
+    label_status.pack()
+    combo_status = ctk.CTkComboBox(root, values=["HOMOLOGADO", "ADJUDICADO"])
+    combo_status.pack(pady=5)
 
+    # Botão de executar
+    btn_executar = ctk.CTkButton(root, text="Executar Busca", command=iniciar_busca)
+    btn_executar.pack(pady=10)
+
+    btn_extrair_cnpj_homologados = ctk.CTkButton(root, text="Extrair CNPJ Homologados", 
+                                                 command=lambda: extrair_cnpjs(label_erro, 'homologados'))
+    btn_extrair_cnpj_homologados.pack(pady=10)
+
+    btn_extrair_cnpj_adjudicados = ctk.CTkButton(root, text="Extrair CNPJ Adjudicados", 
+                                                 command=lambda: extrair_cnpjs(label_erro, 'adjudicados'))
+    btn_extrair_cnpj_adjudicados.pack(pady=10)
+
+    # Label de erro ou sucesso
+    label_erro = ctk.CTkLabel(root, text="")
+    label_erro.pack()
+
+    # Inicia a interface
+    root.mainloop()
+
+# Executa a interface
+if __name__ == "__main__":
+    criar_interface()
