@@ -8,6 +8,7 @@ import pyautogui
 from selenium.webdriver.support.ui import Select
 from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException
 from selenium.webdriver.common.action_chains import ActionChains
+import os
 
 def limpa_campo():
     for _ in range(10):
@@ -16,7 +17,23 @@ def limpa_campo():
         pyautogui.press('backspace')
 
 def extrair_bllcompras():
-    driver = webdriver.Chrome()
+    current_dir = os.getcwd()
+    download_dir = os.path.join(current_dir, "vencedores_bll_compras")
+
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+        print(f"Pasta criada: {download_dir}")
+
+    chrome_options = webdriver.ChromeOptions()
+    prefs = {
+        "download.default_directory": download_dir,  # Define o diretório atual
+        "download.prompt_for_download": False,      # Não perguntar antes de baixar
+        "download.directory_upgrade": True,
+        "safebrowsing.enabled": True                # Ativa o download seguro
+    }
+    chrome_options.add_experimental_option("prefs", prefs)
+
+    driver = webdriver.Chrome(options=chrome_options)
     driver.get('https://bllcompras.com/Process/ProcessSearchPublic?param1=0#')
 
     # Aguarda até que o elemento de seleção de status esteja presente
@@ -153,11 +170,15 @@ def extrair_bllcompras():
                                 # Realiza o clique com ActionChains
                                 ActionChains(driver).move_to_element(botao_download).click().perform()
                                 print("Download iniciado com sucesso.")
-                                time.sleep(5)  # Espera o download começar
-                                break  # Interrompe o loop após encontrar e clicar no botão correto
+                                time.sleep(5)  
+                                download_realizado = True
+                                break  
 
                             except Exception as e:
                                 print(f"Erro ao tentar clicar no ícone de download: {e}")
+                        if download_realizado:
+                            print("Download concluído para esta linha. Encerrando busca na linha.")
+                            break  
                         else:
                             print("Link ignorado, não corresponde ao 'VencedoresProcesso'.")
 
