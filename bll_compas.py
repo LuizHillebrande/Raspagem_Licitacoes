@@ -13,6 +13,24 @@ import re
 import pdfplumber
 import pandas as pd
 import customtkinter as ctk
+import json
+
+PROGRESSO_JSON = "progresso.json"
+
+def salvar_progresso(pdfs_baixados, cnpjs_extraidos):
+    progresso = {
+        "pdfs_baixados": pdfs_baixados,
+        "cnpjs_extraidos": cnpjs_extraidos
+    }
+    with open(PROGRESSO_JSON, "w") as file:
+        json.dump(progresso, file)
+
+# Função para carregar progresso
+def carregar_progresso():
+    if os.path.exists(PROGRESSO_JSON):
+        with open(PROGRESSO_JSON, "r") as file:
+            return json.load(file)
+    return {"pdfs_baixados": 0, "cnpjs_extraidos": 0}
 
 def limpa_campo():
     for _ in range(10):
@@ -89,7 +107,8 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     original_url = driver.current_url
 
     elements = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
-    pdfs_baixados = 0  
+    progresso = carregar_progresso()
+    pdfs_baixados = progresso["pdfs_baixados"]
 
     for index, element in enumerate(elements, start=1):
         print(f"Elemento {index} de {len(elements)}")
@@ -182,7 +201,8 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
                                 ActionChains(driver).move_to_element(botao_download).click().perform()
                                 print("Download iniciado com sucesso.")
                                 pdfs_baixados += 1
-                                label_contador_pdfs.configure(text=f"PDFs Baixados: {pdfs_baixados}")
+                                label_contador_pdfs.configure(text=f"PDFs    Baixados: {pdfs_baixados}")
+                                salvar_progresso(pdfs_baixados, progresso["cnpjs_extraidos"])
                                 root.update()
                                 time.sleep(5)  
                                 download_realizado = True
@@ -218,9 +238,9 @@ def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
     """
     # Padrão regex para capturar CNPJs
     padrao_cnpj = r'\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b'
+    progresso = carregar_progresso()
     cnpjs_encontrados = set()
-    total_cnpjs = 0 
-    
+    total_cnpjs = progresso["cnpjs_extraidos"]
 
     # Itera sobre os arquivos na pasta
     for arquivo in os.listdir(pasta):
@@ -239,6 +259,7 @@ def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
                             cnpjs_encontrados.update(cnpjs)
                             total_cnpjs += len(cnpjs)
                             label_contador_cnpjs.configure(text=f"CNPJs Extraídos: {total_cnpjs}")
+                            salvar_progresso(progresso["pdfs_baixados"], total_cnpjs)
                             root.update()
                             if cnpjs:
                                 print(f"CNPJs encontrados no arquivo {arquivo}: {cnpjs}")
