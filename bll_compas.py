@@ -9,6 +9,9 @@ from selenium.webdriver.support.ui import Select
 from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException
 from selenium.webdriver.common.action_chains import ActionChains
 import os
+import re
+import pdfplumber
+import pandas as pd
 
 def limpa_campo():
     for _ in range(10):
@@ -18,7 +21,7 @@ def limpa_campo():
 
 def extrair_bllcompras():
     current_dir = os.getcwd()
-    download_dir = os.path.join(current_dir, "vencedores_bll_compras")
+    download_dir = os.path.join(current_dir, "vencedores_bll_compras_homologado")
 
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)
@@ -194,4 +197,114 @@ def extrair_bllcompras():
     
     driver.quit()  # Fechamento do driver após a execução
 
-extrair_bllcompras()
+def extrair_cnpjs_pasta(pasta):
+    """
+    Extrai CNPJs de todos os PDFs em uma pasta específica e salva em um arquivo Excel.
+    """
+    # Padrão regex para capturar CNPJs
+    padrao_cnpj = r'\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b'
+    
+    # Lista para armazenar os CNPJs encontrados
+    cnpjs_encontrados = []
+
+    # Itera sobre os arquivos na pasta
+    for arquivo in os.listdir(pasta):
+        if arquivo.endswith(".pdf"):
+            caminho_arquivo = os.path.join(pasta, arquivo)
+            print(f"Processando: {caminho_arquivo}")
+
+            # Abre o PDF e extrai texto
+            try:
+                with pdfplumber.open(caminho_arquivo) as pdf:
+                    for pagina in pdf.pages:
+                        texto = pagina.extract_text()
+                        if texto:
+                            # Procura por CNPJs no texto
+                            cnpjs = re.findall(padrao_cnpj, texto)
+                            if cnpjs:
+                                print(f"CNPJs encontrados no arquivo {arquivo}: {cnpjs}")
+                                cnpjs_encontrados.extend(cnpjs)
+            except Exception as e:
+                print(f"Erro ao processar {arquivo}: {e}")
+
+    # Remove duplicatas de CNPJs
+    cnpjs_unicos = list(set(cnpjs_encontrados))
+
+    # Exibe todos os CNPJs encontrados
+    print("\nCNPJs encontrados:")
+    for cnpj in cnpjs_unicos:
+        print(cnpj)
+
+    # Salva os CNPJs em um arquivo Excel
+    caminho_saida = os.path.join("dados_vencedores_homologados_bll_compras.xlsx")
+    df = pd.DataFrame(cnpjs_unicos, columns=["CNPJs"])
+    df.to_excel(caminho_saida, index=False)
+
+    print(f"\nCNPJs salvos em: {caminho_saida}")
+
+# Caminho da pasta onde estão os PDFs
+pasta_pdfs = os.getcwd()  # Diretório atual
+pasta_vencedores = os.path.join(pasta_pdfs, "vencedores_bll_compras_homologados")
+
+if not os.path.exists(pasta_vencedores):
+    os.makedirs(pasta_vencedores)
+    print(f"Pasta criada: {pasta_vencedores}")
+
+
+extrair_cnpjs_pasta(pasta_vencedores)
+
+def extrair_cnpjs_pasta_ajudicado(pasta):
+    """
+    Extrai CNPJs de todos os PDFs em uma pasta específica e salva em um arquivo Excel.
+    """
+    # Padrão regex para capturar CNPJs
+    padrao_cnpj = r'\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b'
+    
+    # Lista para armazenar os CNPJs encontrados
+    cnpjs_encontrados = []
+
+    # Itera sobre os arquivos na pasta
+    for arquivo in os.listdir(pasta):
+        if arquivo.endswith(".pdf"):
+            caminho_arquivo = os.path.join(pasta, arquivo)
+            print(f"Processando: {caminho_arquivo}")
+
+            # Abre o PDF e extrai texto
+            try:
+                with pdfplumber.open(caminho_arquivo) as pdf:
+                    for pagina in pdf.pages:
+                        texto = pagina.extract_text()
+                        if texto:
+                            # Procura por CNPJs no texto
+                            cnpjs = re.findall(padrao_cnpj, texto)
+                            if cnpjs:
+                                print(f"CNPJs encontrados no arquivo {arquivo}: {cnpjs}")
+                                cnpjs_encontrados.extend(cnpjs)
+            except Exception as e:
+                print(f"Erro ao processar {arquivo}: {e}")
+
+    # Remove duplicatas de CNPJs
+    cnpjs_unicos = list(set(cnpjs_encontrados))
+
+    # Exibe todos os CNPJs encontrados
+    print("\nCNPJs encontrados:")
+    for cnpj in cnpjs_unicos:
+        print(cnpj)
+
+    # Salva os CNPJs em um arquivo Excel
+    caminho_saida = os.path.join("dados_vencedores_ajudicados_bll_compras.xlsx")
+    df = pd.DataFrame(cnpjs_unicos, columns=["CNPJs"])
+    df.to_excel(caminho_saida, index=False)
+
+    print(f"\nCNPJs salvos em: {caminho_saida}")
+
+# Caminho da pasta onde estão os PDFs
+pasta_pdfs_ajudicados= os.getcwd()  # Diretório atual
+pasta_vencedores_ajudicados = os.path.join(pasta_pdfs, "vencedores_bll_compras_ajudicados")
+
+if not os.path.exists(pasta_vencedores):
+    os.makedirs(pasta_vencedores)
+    print(f"Pasta criada: {pasta_vencedores}")
+
+extrair_cnpjs_pasta_ajudicado(pasta_vencedores)
+
