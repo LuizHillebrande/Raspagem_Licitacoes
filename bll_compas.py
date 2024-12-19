@@ -20,7 +20,7 @@ def limpa_campo():
     for _ in range(10):
         pyautogui.press('backspace')
 
-def extrair_bllcompras(data_inicio, data_fim, status_processo):
+def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs):
     current_dir = os.getcwd()
     if status_processo == "HOMOLOGADO":
         pasta_destino = os.path.join(current_dir, "vencedores_bll_compras_homologado")
@@ -89,6 +89,8 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo):
     original_url = driver.current_url
 
     elements = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
+    pdfs_baixados = 0  
+
     for index, element in enumerate(elements, start=1):
         print(f"Elemento {index} de {len(elements)}")
 
@@ -179,6 +181,9 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo):
                                 # Realiza o clique com ActionChains
                                 ActionChains(driver).move_to_element(botao_download).click().perform()
                                 print("Download iniciado com sucesso.")
+                                pdfs_baixados += 1
+                                label_contador_pdfs.configure(text=f"PDFs Baixados: {pdfs_baixados}")
+                                root.update()
                                 time.sleep(5)  
                                 download_realizado = True
                                 break  
@@ -213,9 +218,9 @@ def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
     """
     # Padrão regex para capturar CNPJs
     padrao_cnpj = r'\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b'
+    cnpjs_encontrados = set()
+    total_cnpjs = 0 
     
-    # Lista para armazenar os CNPJs encontrados
-    cnpjs_encontrados = []
 
     # Itera sobre os arquivos na pasta
     for arquivo in os.listdir(pasta):
@@ -231,6 +236,10 @@ def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
                         if texto:
                             # Procura por CNPJs no texto
                             cnpjs = re.findall(padrao_cnpj, texto)
+                            cnpjs_encontrados.update(cnpjs)
+                            total_cnpjs += len(cnpjs)
+                            label_contador_cnpjs.configure(text=f"CNPJs Extraídos: {total_cnpjs}")
+                            root.update()
                             if cnpjs:
                                 print(f"CNPJs encontrados no arquivo {arquivo}: {cnpjs}")
                                 cnpjs_encontrados.extend(cnpjs)
@@ -281,8 +290,10 @@ def criar_interface():
         data_inicio = entry_data_inicio.get()
         data_fim = entry_data_fim.get()
         status_processo = combo_status.get()
+        extrair_bllcompras(data_inicio, data_fim, status_processo, label_contador_pdfs)
 
-        # Validação simples
+        
+        # Validação simples 
         if not data_inicio or not data_fim or not status_processo:
             label_erro.configure(text="Preencha todos os campos!", text_color="red")
             return
@@ -291,10 +302,10 @@ def criar_interface():
             root.update()
 
         # Executa o programa principal
-        extrair_bllcompras(data_inicio, data_fim, status_processo)
+        extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs)
 
        
-
+    global root
     # Configuração da interface
     root = ctk.CTk()
     root.title("Busca BLL Compras")
@@ -334,6 +345,13 @@ def criar_interface():
     btn_extrair_cnpj_adjudicados = ctk.CTkButton(root, text="Extrair CNPJ Adjudicados", 
                                                  command=lambda: extrair_cnpjs(label_erro, 'adjudicados'))
     btn_extrair_cnpj_adjudicados.pack(pady=10)
+
+    global label_contador_pdfs, label_contador_cnpjs
+    label_contador_pdfs = ctk.CTkLabel(root, text="PDFs Baixados: 0")
+    label_contador_pdfs.pack()
+
+    label_contador_cnpjs = ctk.CTkLabel(root, text="CNPJs Extraídos: 0")
+    label_contador_cnpjs.pack()
 
     # Label de erro ou sucesso
     label_erro = ctk.CTkLabel(root, text="")
