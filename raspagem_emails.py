@@ -11,7 +11,7 @@ from time import sleep
 def consulta_cnpj_gratis():
     arquivos = [
         "dados_fornecedores.xlsx",
-        "dados_fornecedores_2.xlsx",
+        "dados_vencedores_diario_sp.xlsx",
         "dados_fornecedores_3.xlsx",
         "dados_fornecedores_4.xlsx",
         "dados_fornecedores_5.xlsx"
