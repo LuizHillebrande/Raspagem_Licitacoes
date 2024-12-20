@@ -7,10 +7,13 @@ import time
 import customtkinter as ctk
 from tkinter import messagebox
 import os
+import threading
 
 # Configurar o tema dark
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
+
+cnpj_count = 0
 
 # Lista de sites de licitação/contratos
 sites_licitacao = ["Portal Nacional de Contratações Públicas", "Outros Sites de Licitação"]
@@ -18,6 +21,7 @@ sites_licitacao = ["Portal Nacional de Contratações Públicas", "Outros Sites 
 
 # Função para realizar a raspagem do Portal Nacional de Contratações Públicas
 def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
+    global cnpj_count
     driver = webdriver.Chrome()
 
     # Criar a planilha para salvar os dados
@@ -52,6 +56,8 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
                         )
                         cnpj = cnpj_element.text
                         print(f"Botão {i}: CNPJ encontrado - {cnpj}")
+                        cnpj_count += 1
+                        cnpj_label.configure(text=f"CNPJs extraídos: {cnpj_count}")
                     except Exception as e:
                         print(f"Botão {i}: Erro ao extrair o CNPJ - {e}")
                         cnpj = "Não encontrado"
@@ -98,4 +104,30 @@ def iniciar_raspagem_Portal_de_compras_publicas():
     driver.quit()
     messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
 
-iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas()
+def iniciar_raspagem():
+    threading.Thread(target=iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas, daemon=True).start()
+
+# Criando a interface gráfica com CustomTkinter
+def criar_interface_pncp():
+    global cnpj_label
+
+    # Configuração da janela
+    janela = ctk.CTk()
+    janela.title("Raspagem de Dados de Licitação")
+    janela.geometry("500x300")
+
+    # Título
+    titulo = ctk.CTkLabel(janela, text="Raspagem PNCP", font=("Arial", 18))
+    titulo.pack(pady=20)
+
+    # Botão para iniciar a raspagem
+    btn_iniciar = ctk.CTkButton(janela, text="Iniciar Raspagem", command=iniciar_raspagem, font=("Arial", 16))
+    btn_iniciar.pack(pady=20)
+
+    # Label para mostrar o número de CNPJs extraídos
+    cnpj_label = ctk.CTkLabel(janela, text="CNPJs extraídos: 0", font=("Arial", 14))
+    cnpj_label.pack(pady=10)
+
+    # Iniciar a interface
+    janela.mainloop()
+

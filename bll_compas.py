@@ -278,7 +278,10 @@ def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
         
         # Salva os CNPJs em um arquivo Excel
         caminho_saida = os.path.join(os.getcwd(), nome_arquivo_saida)  # Caminho completo para o arquivo
-        df = pd.DataFrame(cnpjs_unicos, columns=["CNPJs"])
+        df = pd.DataFrame({
+            "Índice": range(1, len(cnpjs_unicos) + 1),
+            "CNPJs": cnpjs_unicos  # Insira os CNPJs na segunda coluna
+        })
         df.to_excel(caminho_saida, index=False)
         print(f"\nCNPJs salvos em: {caminho_saida}")
         

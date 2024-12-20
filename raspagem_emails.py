@@ -12,8 +12,8 @@ def consulta_cnpj_gratis():
     arquivos = [
         "dados_fornecedores.xlsx",
         "dados_vencedores_diario_sp.xlsx",
-        "dados_fornecedores_3.xlsx",
-        "dados_fornecedores_4.xlsx",
+        "dados_vencedores_adjudicados_bll_compras.xlsx",
+        "dados_vencedores_homologados_bll_compras.xlsx",
         "dados_fornecedores_5.xlsx"
     ]
 

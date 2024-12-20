@@ -19,7 +19,11 @@ import pdfplumber
 import pandas as pd
 import customtkinter as ctk
 import json
-
+import threading
+from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import NoSuchElementException
+from time import sleep
+import tkinter as tk
 
 # Funções de raspagem (essas são apenas placeholders, substitua pelas suas funções de raspagem reais)
 def iniciar_raspagem_pncp():
@@ -289,7 +293,10 @@ def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
         
         # Salva os CNPJs em um arquivo Excel
         caminho_saida = os.path.join(os.getcwd(), nome_arquivo_saida)  # Caminho completo para o arquivo
-        df = pd.DataFrame(cnpjs_unicos, columns=["CNPJs"])
+        df = pd.DataFrame({
+            "Índice": range(1, len(cnpjs_unicos) + 1),
+            "CNPJs": cnpjs_unicos  # Insira os CNPJs na segunda coluna
+        })
         df.to_excel(caminho_saida, index=False)
         print(f"\nCNPJs salvos em: {caminho_saida}")
         
@@ -406,10 +413,10 @@ def iniciar_raspagem_site4():
 def eliminar_cnpj_repetido():
     # Lista de arquivos que devem ser processados
     arquivos = [
-        "dados_fornecedores_1.xlsx", 
-        "dados_fornecedores_2.xlsx", 
-        "dados_fornecedores_3.xlsx", 
-        "dados_fornecedores_4.xlsx", 
+        "dados_fornecedores.xlsx", 
+        "dados_vencedores_diario_sp.xlsx", 
+        "dados_vencedores_homologados_bll_compras.xlsx", 
+        "dados_vencedores_adjudicados_bll_compras.xlsx", 
         "dados_fornecedores_5.xlsx"
     ]
 
@@ -422,23 +429,41 @@ def eliminar_cnpj_repetido():
         return
 
     # Processa os arquivos encontrados
-    cnpjs_unicos = carregar_cnpjs_de_arquivos(arquivos_existentes)
+    cnpjs_unicos, cnpjs_duplicados = carregar_cnpjs_de_arquivos(arquivos_existentes)
+    
+    # Salvar os CNPJs únicos no arquivo
     salvar_cnpjs_unicos(cnpjs_unicos)
-    messagebox.showinfo("Concluído", "CNPJs duplicados eliminados com sucesso!")
+    
+    # Mostrar o número de CNPJs duplicados eliminados
+    messagebox.showinfo("Concluído", f"CNPJs duplicados eliminados com sucesso!\n"
+                                    f"Total de CNPJs duplicados removidos: {cnpjs_duplicados}")
 
 def carregar_cnpjs_de_arquivos(arquivos):
     cnpjs_unicos = set()  # Usando um set para garantir que não haja CNPJs duplicados
+    cnpjs_duplicados = 0
+    cnpjs_em_arquivos = {}  # Dicionário para contar em quantos arquivos um CNPJ aparece
 
     for arquivo in arquivos:
         wb = openpyxl.load_workbook(arquivo)
         ws = wb.active
         
         for row in ws.iter_rows(min_row=2, max_col=2, values_only=True):  # Pular o cabeçalho
-            cnpj = row[1] 
+            cnpj = row[1]
             if cnpj:
-                cnpjs_unicos.add(cnpj.strip())  # Adiciona o CNPJ ao set (remover espaços extras)
+                cnpj = cnpj.strip()  # Remove espaços extras
+                if cnpj in cnpjs_em_arquivos:
+                    cnpjs_em_arquivos[cnpj] += 1
+                else:
+                    cnpjs_em_arquivos[cnpj] = 1
 
-    return cnpjs_unicos
+    # Elimina os CNPJs que aparecem em mais de um arquivo
+    for cnpj, contador in cnpjs_em_arquivos.items():
+        if contador == 1:  # Se o CNPJ aparece apenas uma vez em todos os arquivos
+            cnpjs_unicos.add(cnpj)  # Adiciona ao conjunto de CNPJs únicos
+        else:
+            cnpjs_duplicados += 1  # Conta como duplicado se apareceu em mais de um arquivo
+
+    return cnpjs_unicos, cnpjs_duplicados
 
 def salvar_cnpjs_unicos(cnpjs_unicos, nome_arquivo="cnpjs_unicos.xlsx"):
     wb = openpyxl.Workbook()
@@ -451,6 +476,7 @@ def salvar_cnpjs_unicos(cnpjs_unicos, nome_arquivo="cnpjs_unicos.xlsx"):
     wb.save(nome_arquivo)
     print(f"CNPJs únicos salvos em: {nome_arquivo}")
 
+
 def enviar_emails_site1():
     messagebox.showinfo("Enviar E-mails Site 1", "Enviando e-mails para o Site 1...")
 
@@ -462,6 +488,341 @@ def enviar_emails_site3():
 
 def enviar_emails_site4():
     messagebox.showinfo("Enviar E-mails Site 4", "Enviando e-mails para o Site 4...")
+
+def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, mes_fim, ano_fim, cnpj_label, janela):
+    driver = webdriver.Chrome()
+    driver.get('https://www.imprensaoficial.com.br/ENegocios/BuscaENegocios_14_1.aspx#12/12/2024')
+    sleep(2)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Link", "CNPJ", "Razão Social"])
+
+    # Preencher Status ENCERRADA
+    encerrada = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.XPATH, "//select[@id='content_content_content_Status_cboStatus']/option[text()='ENCERRADA']"))
+    )
+    encerrada.click()
+
+    # Preencher Data Inicial
+    xpath_dia_inicio = f"//select[@id='content_content_content_Status_cboAberturaSecaoInicioDia']/option[@value='{dia_inicio}']"
+    xpath_mes_inicio = f"//select[@id='content_content_content_Status_cboAberturaSecaoInicioMes']/option[@value='{mes_inicio}']"
+    xpath_ano_inicio = f"//select[@id='content_content_content_Status_cboAberturaSecaoInicioAno']/option[@value='{ano_inicio}']"
+
+    WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_dia_inicio))).click()
+    WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_mes_inicio))).click()
+    WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_ano_inicio))).click()
+
+    # Preencher Data Final
+    xpath_dia_fim = f"//select[@id='content_content_content_Status_cboAberturaSecaoFimDia']/option[@value='{dia_fim}']"
+    xpath_mes_fim = f"//select[@id='content_content_content_Status_cboAberturaSecaoFimMes']/option[@value='{mes_fim}']"
+    xpath_ano_fim = f"//select[@id='content_content_content_Status_cboAberturaSecaoFimAno']/option[@value='{ano_fim}']"
+
+    WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_dia_fim))).click()
+    WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_mes_fim))).click()
+    WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath_ano_fim))).click()
+
+    sleep(3)
+    buscar = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.XPATH, "//input[@onclick='return verify();']"))
+    )
+    buscar.click()
+    sleep(2)
+
+    # Página inicial
+    pagina_inicial_url = driver.current_url
+    print('Página inicial:', pagina_inicial_url)
+
+    cnpj_count = 0
+
+    # Loop processando páginas
+    while True:
+        print("Extraindo dados da página atual...")
+        proxima_pagina = captura_link(driver, ws, wb, pagina_inicial_url,cnpj_count, cnpj_label, janela)
+
+        if not proxima_pagina:
+            break  # Se não há mais próxima página, encerra o loop
+
+    wb.save("dados_vencedores_diario_sp.xlsx")
+    print("Planilha salva como 'dados_vencedores_diario_sp.xlsx'")
+    driver.quit()
+    print("Navegador fechado.")
+
+def captura_link(driver, ws, wb, pagina_inicial_url,cnpj_count, cnpj_label, janela):
+    links = driver.find_elements(By.XPATH, "//a[contains(@id, 'ResultadoBusca_dtgResultadoBusca_hlkObjeto')]")
+    links_unicos = list(dict.fromkeys([link.get_attribute('href') for link in links]))
+
+    print(f"Total de links encontrados nesta página: {len(links_unicos)}")
+
+    for i, link in enumerate(links_unicos, start=1):
+        print(f"Acessando Link {i}: {link}")
+        driver.get(link)
+        sleep(2)
+        try:
+            homologacao_links = driver.find_elements(By.XPATH, "//a[contains(@onclick, 'HOMOLOGAÇÃO')]")
+            print(f"Total de links encontrados: {len(homologacao_links)}")
+        except NoSuchElementException as e:
+            print(f"Elemento não encontrado: {e}")
+            homologacao_links = []
+            
+        sleep(2)
+        if homologacao_links:
+            homologacao_link = homologacao_links[0]
+            onclick_content = homologacao_link.get_attribute('onclick')
+            match = re.search(r"AbreJanelaDetalhes\((\d+),(\d+),\"HOMOLOGAÇÃO\"\)", onclick_content)
+            if match:
+                id_licitacao, id_evento = match.groups()
+                homologacao_url = f"https://www.imprensaoficial.com.br/ENegocios/popup/pop_e-nego_detalhes.aspx?IdLicitacao={id_licitacao}&IdEventoLicitacao={id_evento}"
+                print(f"Abrindo link de HOMOLOGAÇÃO: {homologacao_url}")
+                try:
+                    driver.get(homologacao_url)
+                    print(f"URL atual: {driver.current_url}")
+                except StaleElementReferenceException:
+                    print("Elemento ficou stale. Tentando recapturar...")
+                    driver.get(homologacao_url)
+                
+                sleep(2)
+
+                try:
+                    detalhes_texto = driver.find_element(By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao").text
+                    cnpj_match = re.search(r'CNPJ\s*(?:Nº|N.º|:|-)?\s*(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})', detalhes_texto)
+
+                    if cnpj_match:  # Se houver uma correspondência válida
+                        cnpj = cnpj_match.group(1)  # Obtém o CNPJ
+                        cnpj_count += 1  # Incrementa a contagem
+                    else:
+                        cnpj = "Não encontrado"  # Se não encontrar, atribui "Não encontrado"
+
+                    # Atualiza o label com a contagem de CNPJs extraídos
+                    cnpj_label.configure(text=f"CNPJs extraídos: {cnpj_count}")
+                    janela.update()
+
+
+                    razao_social_match = re.search(r'(?:EMPRESA VENCEDORA:|a favor da empresa|EMPRESA\s*[:-]\s*)(.*?)(?=\s*CNPJ)', detalhes_texto)
+                    razao_social = razao_social_match.group(1).strip() if razao_social_match else "Não encontrado"
+
+                    ws.append([homologacao_url, cnpj, razao_social])
+                    wb.save("dados_vencedores_diario_sp.xlsx")
+
+                    
+            
+
+                except StaleElementReferenceException:
+                    print("Elemento ficou stale. Tentando recapturar...")
+                    detalhes_texto = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao"))
+                    ).text
+    else:
+        print('Nao tem link de homologação')
+    # Voltar à página inicial
+    driver.get(pagina_inicial_url)
+    sleep(2)
+
+    # Tentar clicar em "Próxima" ao final da página
+    try:
+        botao_proxima = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//a[@id='content_content_content_ResultadoBusca_PaginadorCima_btnProxima']"))
+        )
+        botao_proxima.click()
+        sleep(2)
+        return True  # Retorna True para indicar que há próxima página
+    except Exception as e:
+        print(f"Não há mais próxima página: {e}")
+        return False  # Retorna False quando não há mais páginas
+    
+
+def criar_interface_diario_sp():
+    def capturar_datas():
+        dia_inicio = combo_dia_inicio.get()
+        mes_inicio = combo_mes_inicio.get()
+        ano_inicio = combo_ano_inicio.get()
+
+        dia_fim = combo_dia_fim.get()
+        mes_fim = combo_mes_fim.get()
+        ano_fim = combo_ano_fim.get()
+
+        # Chama a função Selenium para preencher os dados em uma thread separada
+        threading.Thread(target=iniciar_raspagem_compras_gov, args=(dia_inicio, mes_inicio, ano_inicio, dia_fim, mes_fim, ano_fim, cnpj_label, janela)).start()
+    
+    # Configuração inicial da janela principal usando customtkinter
+    ctk.set_appearance_mode("Dark")  # Modo escuro
+    ctk.set_default_color_theme("blue")  # Tema de cor azul
+
+    janela = ctk.CTk()  # Usando CTk ao invés de Tk
+    janela.title("Seleção de Datas")
+    janela.geometry("500x400")
+
+    # Componentes para Data Inicial
+    label_inicio = ctk.CTkLabel(janela, text="Data Inicial:", font=("Arial", 14))
+    label_inicio.pack(pady=10)
+
+    frame_inicio = ctk.CTkFrame(janela)
+    frame_inicio.pack(pady=5)
+
+    combo_dia_inicio = ctk.CTkComboBox(frame_inicio, values=[str(i) for i in range(1, 32)], width=50)
+    combo_dia_inicio.set("1")
+    combo_dia_inicio.pack(side=tk.LEFT, padx=5)
+
+    combo_mes_inicio = ctk.CTkComboBox(frame_inicio, values=[str(i) for i in range(1, 13)], width=50)
+    combo_mes_inicio.set("1")
+    combo_mes_inicio.pack(side=tk.LEFT, padx=5)
+
+    combo_ano_inicio = ctk.CTkComboBox(frame_inicio, values=[str(i) for i in range(2004, 2026)], width=70)
+    combo_ano_inicio.set("2024")
+    combo_ano_inicio.pack(side=tk.LEFT, padx=5)
+
+    # Componentes para Data Final
+    label_fim = ctk.CTkLabel(janela, text="Data Final:", font=("Arial", 14))
+    label_fim.pack(pady=10)
+
+    frame_fim = ctk.CTkFrame(janela)
+    frame_fim.pack(pady=5)
+
+    combo_dia_fim = ctk.CTkComboBox(frame_fim, values=[str(i) for i in range(1, 32)], width=50)
+    combo_dia_fim.set("1")
+    combo_dia_fim.pack(side=tk.LEFT, padx=5)
+
+    combo_mes_fim = ctk.CTkComboBox(frame_fim, values=[str(i) for i in range(1, 13)], width=50)
+    combo_mes_fim.set("1")
+    combo_mes_fim.pack(side=tk.LEFT, padx=5)
+
+    combo_ano_fim = ctk.CTkComboBox(frame_fim, values=[str(i) for i in range(2004, 2026)], width=70)
+    combo_ano_fim.set("2024")
+    combo_ano_fim.pack(side=tk.LEFT, padx=5)
+
+    # Botão para capturar as datas e preencher no Selenium
+    btn_confirmar = ctk.CTkButton(janela, text="Iniciar Raspagem", command=capturar_datas, font=("Arial", 16))
+    btn_confirmar.pack(pady=20)
+
+    # Label para mostrar a quantidade de CNPJs extraídos
+    cnpj_label = ctk.CTkLabel(janela, text="CNPJs extraídos: 0", font=("Arial", 14))
+    cnpj_label.pack(pady=5)
+
+    # Inicia o loop da interface
+    janela.mainloop()
+
+# Configurar o tema dark
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("dark-blue")
+
+cnpj_count = 0
+
+# Lista de sites de licitação/contratos
+sites_licitacao = ["Portal Nacional de Contratações Públicas", "Outros Sites de Licitação"]
+
+
+# Função para realizar a raspagem do Portal Nacional de Contratações Públicas
+def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
+    global cnpj_count
+    driver = webdriver.Chrome()
+
+    # Criar a planilha para salvar os dados
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Link", "CNPJ", "Razão Social"])  # Cabeçalho da planilha
+
+    for pagina in range(1, 1000):  # De 1 a 999
+        url = f'https://pncp.gov.br/app/contratos?q=&pagina={pagina}'
+        driver.get(url)
+        wb.save("dados_fornecedores.xlsx")
+
+        # Aguardar o carregamento dos elementos
+        time.sleep(3)  # Espera de 3 segundos para garantir que a página carregue
+
+        try:
+            # Encontrar os botões únicos
+            botoes = driver.find_elements(By.XPATH, "//a[contains(@class, 'br-item') and contains(@title, 'Acessar item.')]")
+            botoes_unicos = list(dict.fromkeys([botao.get_attribute('href') for botao in botoes]))  # Remove duplicatas
+            
+            print(f"Página {pagina}: Total de botões encontrados: {len(botoes_unicos)}")
+
+            for i, link in enumerate(botoes_unicos, start=1):
+                try:
+                    driver.get(link)
+                    time.sleep(2)  # Espera um pouco para a página carregar
+
+                    try:
+                        # Extrair o CNPJ
+                        cnpj_element = WebDriverWait(driver, 5).until(
+                            EC.presence_of_element_located((By.XPATH, "//strong[contains(text(), 'CNPJ/CPF:')]/following-sibling::span"))
+                        )
+                        cnpj = cnpj_element.text
+                        print(f"Botão {i}: CNPJ encontrado - {cnpj}")
+                        cnpj_count += 1
+                        cnpj_label.configure(text=f"CNPJs extraídos: {cnpj_count}")
+                    except Exception as e:
+                        print(f"Botão {i}: Erro ao extrair o CNPJ - {e}")
+                        cnpj = "Não encontrado"
+
+                    try:
+                        # Extrair a Razão Social
+                        razao_social_element = WebDriverWait(driver, 5).until(
+                            EC.presence_of_element_located((By.XPATH, "//strong[contains(text(), 'Nome/Razão social:')]/following-sibling::span"))
+                        )
+                        razao_social = razao_social_element.text
+                        print(f"Botão {i}: Razão social encontrada - {razao_social}")
+                    except Exception as e:
+                        print(f"Botão {i}: Erro ao extrair a Razão Social - {e}")
+                        razao_social = "Não encontrado"
+
+                    # Salvar os dados na planilha
+                    ws.append([link, cnpj, razao_social])
+                except Exception as e:
+                    print(f"Erro ao processar o botão {i}: {e}")
+          
+        except Exception as e:
+            print(f"Erro ao acessar a página {pagina}: {e}")
+
+    # Salvar a planilha
+    wb.save("dados_fornecedores.xlsx")
+    driver.quit()
+    messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
+
+def iniciar_raspagem_Portal_de_compras_publicas():
+    driver = webdriver.Chrome()
+    driver.get('https://www.portaldecompraspublicas.com.br/')
+
+    # Criar a planilha para salvar os dados
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Link", "CNPJ", "Razão Social"])  
+
+    time.sleep(3)  
+    WebDriverWait(driver,5).until(
+        EC.element_to_be_clickable((By.XPATH,"//a[@href class='busca-av']"))
+    )
+            
+    wb.save("dados_vencedores_portal_compras_publicas.xlsx")
+    driver.quit()
+    messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
+
+def iniciar_raspagem():
+    threading.Thread(target=iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas, daemon=True).start()
+
+# Criando a interface gráfica com CustomTkinter
+def criar_interface_pncp():
+    global cnpj_label
+
+    # Configuração da janela
+    janela = ctk.CTk()
+    janela.title("Raspagem de Dados de Licitação")
+    janela.geometry("500x300")
+
+    # Título
+    titulo = ctk.CTkLabel(janela, text="Raspagem PNCP", font=("Arial", 18))
+    titulo.pack(pady=20)
+
+    # Botão para iniciar a raspagem
+    btn_iniciar = ctk.CTkButton(janela, text="Iniciar Raspagem", command=iniciar_raspagem, font=("Arial", 16))
+    btn_iniciar.pack(pady=20)
+
+    # Label para mostrar o número de CNPJs extraídos
+    cnpj_label = ctk.CTkLabel(janela, text="CNPJs extraídos: 0", font=("Arial", 14))
+    cnpj_label.pack(pady=10)
+
+    # Iniciar a interface
+    janela.mainloop()
+
 
 # Configuração do tema escuro
 ctk.set_appearance_mode("Dark")
@@ -500,13 +861,13 @@ img_pncp = ctk.CTkImage(Image.open("img.png"), size=(300, 100))  # Substitua pel
 label_img_pncp = ctk.CTkLabel(frame_pncp, image=img_pncp, text="")
 label_img_pncp.pack(pady=10)
 
-label_pncp = ctk.CTkLabel(frame_pncp, text="Portal Nacional de Licitações", font=("Helvetica", 18, "bold"))
+label_pncp = ctk.CTkLabel(frame_pncp, text="Portal Nacional de Contratações Públicas", font=("Helvetica", 18, "bold"))
 label_pncp.pack(pady=10)
 
 button_pncp = ctk.CTkButton(
     frame_pncp, 
     text="Iniciar Raspagem", 
-    command=iniciar_raspagem_pncp,
+    command=criar_interface_pncp,
     font=("Helvetica", 14), 
     width=250, 
     height=40, 
@@ -536,7 +897,7 @@ img_site1 = ctk.CTkImage(Image.open("bll_compras.png"), size=(300, 100))  # Subs
 label_img_site1 = ctk.CTkLabel(frame_site1, image=img_site1, text="")
 label_img_site1.pack(pady=10)
 
-label_site1 = ctk.CTkLabel(frame_site1, text="BLL COMPRAS", font=("Helvetica", 18, "bold"))
+label_site1 = ctk.CTkLabel(frame_site1, text="BLL Compras", font=("Helvetica", 18, "bold"))
 label_site1.pack(pady=10)
 
 button_site1 = ctk.CTkButton(
@@ -568,17 +929,17 @@ frame_site2 = ctk.CTkFrame(frame_modulos)
 frame_site2.pack(side="left", padx=20, pady=20, fill="y", expand=True)
 
 # Imagem de exemplo para o módulo
-img_site2 = ctk.CTkImage(Image.open("img.png"), size=(300, 100))  # Substitua pelo caminho correto da imagem
+img_site2 = ctk.CTkImage(Image.open("diario_sp.png"), size=(300, 100))  # Substitua pelo caminho correto da imagem
 label_img_site2 = ctk.CTkLabel(frame_site2, image=img_site2, text="")
 label_img_site2.pack(pady=10)
 
-label_site2 = ctk.CTkLabel(frame_site2, text="Outro Site de Licitações 2", font=("Helvetica", 18, "bold"))
+label_site2 = ctk.CTkLabel(frame_site2, text="Diário de São Paulo", font=("Helvetica", 18, "bold"))
 label_site2.pack(pady=10)
 
 button_site2 = ctk.CTkButton(
     frame_site2, 
     text="Iniciar Raspagem", 
-    command=iniciar_raspagem_site2,
+    command=criar_interface_diario_sp,
     font=("Helvetica", 14), 
     width=250, 
     height=40, 
@@ -598,78 +959,6 @@ button_enviar_site2 = ctk.CTkButton(
     hover_color="#388e3c",  
 )
 button_enviar_site2.pack(pady=10)
-
-# Módulo 4 - Outro Site de Licitações
-frame_site3 = ctk.CTkFrame(frame_modulos)
-frame_site3.pack(side="left", padx=20, pady=20, fill="y", expand=True)
-
-# Imagem de exemplo para o módulo
-img_site3 = ctk.CTkImage(Image.open("img.png"), size=(300, 100))  # Substitua pelo caminho correto da imagem
-label_img_site3 = ctk.CTkLabel(frame_site3, image=img_site3, text="")
-label_img_site3.pack(pady=10)
-
-label_site3 = ctk.CTkLabel(frame_site3, text="Outro Site de Licitações 3", font=("Helvetica", 18, "bold"))
-label_site3.pack(pady=10)
-
-button_site3 = ctk.CTkButton(
-    frame_site3, 
-    text="Iniciar Raspagem", 
-    command=iniciar_raspagem_site3,
-    font=("Helvetica", 14), 
-    width=250, 
-    height=40, 
-    fg_color="#007acc",  
-    hover_color="#005b99",  
-)
-button_site3.pack(pady=10)
-
-button_enviar_site3 = ctk.CTkButton(
-    frame_site3, 
-    text="Enviar E-mails", 
-    command=enviar_emails_site4,
-    font=("Helvetica", 14), 
-    width=250, 
-    height=40, 
-    fg_color="#4caf50",  
-    hover_color="#388e3c",  
-)
-button_enviar_site3.pack(pady=10)
-
-# Módulo 5 - Outro Site de Licitações
-frame_site4 = ctk.CTkFrame(frame_modulos)
-frame_site4.pack(side="left", padx=20, pady=20, fill="y", expand=True)
-
-# Imagem de exemplo para o módulo
-img_site4 = ctk.CTkImage(Image.open("img.png"), size=(300, 100))  # Substitua pelo caminho correto da imagem
-label_img_site4 = ctk.CTkLabel(frame_site4, image=img_site4, text="")
-label_img_site4.pack(pady=10)
-
-label_site4 = ctk.CTkLabel(frame_site4, text="Outro Site de Licitações 4", font=("Helvetica", 18, "bold"))
-label_site4.pack(pady=10)
-
-button_site4 = ctk.CTkButton(
-    frame_site4, 
-    text="Iniciar Raspagem", 
-    command=iniciar_raspagem_site4,
-    font=("Helvetica", 14), 
-    width=250, 
-    height=40, 
-    fg_color="#007acc",  
-    hover_color="#005b99",  
-)
-button_site4.pack(pady=10)
-
-button_enviar_site4 = ctk.CTkButton(
-    frame_site4, 
-    text="Enviar E-mails", 
-    command=enviar_emails_site4,
-    font=("Helvetica", 14), 
-    width=250, 
-    height=40, 
-    fg_color="#4caf50",  
-    hover_color="#388e3c",  
-)
-button_enviar_site4.pack(pady=10)
 
 # Rodapé
 footer_frame = ctk.CTkFrame(app, fg_color="transparent")
