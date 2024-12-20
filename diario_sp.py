@@ -57,10 +57,12 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
     pagina_inicial_url = driver.current_url
     print('Página inicial:', pagina_inicial_url)
 
+    cnpj_count = 0
+
     # Loop processando páginas
     while True:
         print("Extraindo dados da página atual...")
-        proxima_pagina = captura_link(driver, ws, wb, pagina_inicial_url)
+        proxima_pagina = captura_link(driver, ws, wb, pagina_inicial_url,cnpj_count)
 
         if not proxima_pagina:
             break  # Se não há mais próxima página, encerra o loop
@@ -70,13 +72,13 @@ def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, me
     driver.quit()
     print("Navegador fechado.")
 
-def captura_link(driver, ws, wb, pagina_inicial_url):
+def captura_link(driver, ws, wb, pagina_inicial_url,cnpj_count):
     links = driver.find_elements(By.XPATH, "//a[contains(@id, 'ResultadoBusca_dtgResultadoBusca_hlkObjeto')]")
     links_unicos = list(dict.fromkeys([link.get_attribute('href') for link in links]))
 
     print(f"Total de links encontrados nesta página: {len(links_unicos)}")
 
-    for i, link in enumerate(links_unicos, start=1):
+    for i, link in enumerate(links_unicos, start=9):
         print(f"Acessando Link {i}: {link}")
         driver.get(link)
         sleep(2)
@@ -108,13 +110,26 @@ def captura_link(driver, ws, wb, pagina_inicial_url):
                 try:
                     detalhes_texto = driver.find_element(By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao").text
                     cnpj_match = re.search(r'CNPJ\s*(?:Nº|N.º|:|-)?\s*(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})', detalhes_texto)
-                    cnpj = cnpj_match.group(1) if cnpj_match else "Não encontrado"
+
+                    if cnpj_match:  # Se houver uma correspondência válida
+                        cnpj = cnpj_match.group(1)  # Obtém o CNPJ
+                        cnpj_count += 1  # Incrementa a contagem
+                    else:
+                        cnpj = "Não encontrado"  # Se não encontrar, atribui "Não encontrado"
+
+                    # Atualiza o label com a contagem de CNPJs extraídos
+                    cnpj_label.config(text=f"CNPJs extraídos: {cnpj_count}")
+
 
                     razao_social_match = re.search(r'(?:EMPRESA VENCEDORA:|a favor da empresa|EMPRESA\s*[:-]\s*)(.*?)(?=\s*CNPJ)', detalhes_texto)
                     razao_social = razao_social_match.group(1).strip() if razao_social_match else "Não encontrado"
 
                     ws.append([homologacao_url, cnpj, razao_social])
                     wb.save("dados_vencedores_diario_sp.xlsx")
+
+                    
+            
+
                 except StaleElementReferenceException:
                     print("Elemento ficou stale. Tentando recapturar...")
                     detalhes_texto = WebDriverWait(driver, 10).until(
@@ -197,6 +212,9 @@ combo_ano_fim.pack(side=tk.LEFT, padx=5)
 # Botão para capturar as datas e preencher no Selenium
 btn_confirmar = ttk.Button(janela, text="Iniciar Raspagem", command=capturar_datas)
 btn_confirmar.pack(pady=20)
+
+cnpj_label = tk.Label(janela, text="CNPJs extraídos: 0")
+cnpj_label.pack()
 
 # Inicia o loop da interface
 tk.mainloop()
