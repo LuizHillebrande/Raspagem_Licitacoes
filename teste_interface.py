@@ -978,3 +978,4 @@ button_eliminar.pack(pady=10)
 
 # Iniciar o loop principal da interface gráfica
 app.mainloop()
+#app
