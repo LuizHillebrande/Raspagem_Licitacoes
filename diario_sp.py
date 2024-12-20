@@ -12,6 +12,8 @@ import pyautogui
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.common.exceptions import NoSuchElementException
+import customtkinter as ctk
+import threading
 
 def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, mes_fim, ano_fim):
     driver = webdriver.Chrome()
@@ -78,7 +80,7 @@ def captura_link(driver, ws, wb, pagina_inicial_url,cnpj_count):
 
     print(f"Total de links encontrados nesta página: {len(links_unicos)}")
 
-    for i, link in enumerate(links_unicos, start=9):
+    for i, link in enumerate(links_unicos, start=1):
         print(f"Acessando Link {i}: {link}")
         driver.get(link)
         sleep(2)
@@ -118,7 +120,8 @@ def captura_link(driver, ws, wb, pagina_inicial_url,cnpj_count):
                         cnpj = "Não encontrado"  # Se não encontrar, atribui "Não encontrado"
 
                     # Atualiza o label com a contagem de CNPJs extraídos
-                    cnpj_label.config(text=f"CNPJs extraídos: {cnpj_count}")
+                    cnpj_label.configure(text=f"CNPJs extraídos: {cnpj_count}")
+                    janela.update()
 
 
                     razao_social_match = re.search(r'(?:EMPRESA VENCEDORA:|a favor da empresa|EMPRESA\s*[:-]\s*)(.*?)(?=\s*CNPJ)', detalhes_texto)
@@ -164,57 +167,62 @@ def capturar_datas():
     mes_fim = combo_mes_fim.get()
     ano_fim = combo_ano_fim.get()
 
-    # Chama a função Selenium para preencher os dados
-    try:
-        iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, mes_fim, ano_fim)
-    except Exception as e:
-        messagebox.showerror("Erro", f"Ocorreu um erro: {e}")
+    # Chama a função Selenium para preencher os dados em uma thread separada
+    threading.Thread(target=iniciar_raspagem_compras_gov, args=(dia_inicio, mes_inicio, ano_inicio, dia_fim, mes_fim, ano_fim)).start()
 
-# Configuração inicial da janela principal
-janela = tk.Tk()
+# Configuração inicial da janela principal usando customtkinter
+ctk.set_appearance_mode("Dark")  # Modo escuro
+ctk.set_default_color_theme("blue")  # Tema de cor azul
+
+janela = ctk.CTk()  # Usando CTk ao invés de Tk
 janela.title("Seleção de Datas")
-janela.geometry("400x400")
+janela.geometry("500x400")
 
 # Componentes para Data Inicial
-ttk.Label(janela, text="Data Inicial:").pack(pady=5)
-frame_inicio = tk.Frame(janela)
+label_inicio = ctk.CTkLabel(janela, text="Data Inicial:", font=("Arial", 14))
+label_inicio.pack(pady=10)
+
+frame_inicio = ctk.CTkFrame(janela)
 frame_inicio.pack(pady=5)
 
-combo_dia_inicio = ttk.Combobox(frame_inicio, values=[str(i) for i in range(1, 32)], width=5)
+combo_dia_inicio = ctk.CTkComboBox(frame_inicio, values=[str(i) for i in range(1, 32)], width=50)
 combo_dia_inicio.set("1")
 combo_dia_inicio.pack(side=tk.LEFT, padx=5)
 
-combo_mes_inicio = ttk.Combobox(frame_inicio, values=[str(i) for i in range(1, 13)], width=5)
+combo_mes_inicio = ctk.CTkComboBox(frame_inicio, values=[str(i) for i in range(1, 13)], width=50)
 combo_mes_inicio.set("1")
 combo_mes_inicio.pack(side=tk.LEFT, padx=5)
 
-combo_ano_inicio = ttk.Combobox(frame_inicio, values=[str(i) for i in range(2004, 2026)], width=6)
+combo_ano_inicio = ctk.CTkComboBox(frame_inicio, values=[str(i) for i in range(2004, 2026)], width=70)
 combo_ano_inicio.set("2024")
 combo_ano_inicio.pack(side=tk.LEFT, padx=5)
 
 # Componentes para Data Final
-ttk.Label(janela, text="Data Final:").pack(pady=5)
-frame_fim = tk.Frame(janela)
+label_fim = ctk.CTkLabel(janela, text="Data Final:", font=("Arial", 14))
+label_fim.pack(pady=10)
+
+frame_fim = ctk.CTkFrame(janela)
 frame_fim.pack(pady=5)
 
-combo_dia_fim = ttk.Combobox(frame_fim, values=[str(i) for i in range(1, 32)], width=5)
+combo_dia_fim = ctk.CTkComboBox(frame_fim, values=[str(i) for i in range(1, 32)], width=50)
 combo_dia_fim.set("1")
 combo_dia_fim.pack(side=tk.LEFT, padx=5)
 
-combo_mes_fim = ttk.Combobox(frame_fim, values=[str(i) for i in range(1, 13)], width=5)
+combo_mes_fim = ctk.CTkComboBox(frame_fim, values=[str(i) for i in range(1, 13)], width=50)
 combo_mes_fim.set("1")
 combo_mes_fim.pack(side=tk.LEFT, padx=5)
 
-combo_ano_fim = ttk.Combobox(frame_fim, values=[str(i) for i in range(2004, 2026)], width=6)
+combo_ano_fim = ctk.CTkComboBox(frame_fim, values=[str(i) for i in range(2004, 2026)], width=70)
 combo_ano_fim.set("2024")
 combo_ano_fim.pack(side=tk.LEFT, padx=5)
 
 # Botão para capturar as datas e preencher no Selenium
-btn_confirmar = ttk.Button(janela, text="Iniciar Raspagem", command=capturar_datas)
+btn_confirmar = ctk.CTkButton(janela, text="Iniciar Raspagem", command=capturar_datas, font=("Arial", 16))
 btn_confirmar.pack(pady=20)
 
-cnpj_label = tk.Label(janela, text="CNPJs extraídos: 0")
-cnpj_label.pack()
+# Label para mostrar a quantidade de CNPJs extraídos
+cnpj_label = ctk.CTkLabel(janela, text="CNPJs extraídos: 0", font=("Arial", 14))
+cnpj_label.pack(pady=5)
 
 # Inicia o loop da interface
-tk.mainloop()
+janela.mainloop()
