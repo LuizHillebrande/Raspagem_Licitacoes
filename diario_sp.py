@@ -9,6 +9,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import re
 import pyautogui
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import NoSuchElementException
 
 def iniciar_raspagem_compras_gov(dia_inicio, mes_inicio, ano_inicio, dia_fim, mes_fim, ano_fim):
     driver = webdriver.Chrome()
@@ -76,36 +79,52 @@ def captura_link(driver, ws, wb, pagina_inicial_url):
     for i, link in enumerate(links_unicos, start=1):
         print(f"Acessando Link {i}: {link}")
         driver.get(link)
-
-        homologacao_links = driver.find_elements(By.XPATH, "//a[contains(@onclick, 'HOMOLOGAÇÃO')]")
+        sleep(2)
+        try:
+            homologacao_links = driver.find_elements(By.XPATH, "//a[contains(@onclick, 'HOMOLOGAÇÃO')]")
+            print(f"Total de links encontrados: {len(homologacao_links)}")
+        except NoSuchElementException as e:
+            print(f"Elemento não encontrado: {e}")
+            homologacao_links = []
+            
         sleep(2)
         if homologacao_links:
-            for homologacao_link in homologacao_links:
-                onclick_content = homologacao_link.get_attribute('onclick')
-                match = re.search(r"AbreJanelaDetalhes\((\d+),(\d+),\"HOMOLOGAÇÃO\"\)", onclick_content)
-                if match:
-                    id_licitacao, id_evento = match.groups()
-                    homologacao_url = f"https://www.imprensaoficial.com.br/ENegocios/popup/pop_e-nego_detalhes.aspx?IdLicitacao={id_licitacao}&IdEventoLicitacao={id_evento}"
-                    print(f"Abrindo link de HOMOLOGAÇÃO: {homologacao_url}")
+            homologacao_link = homologacao_links[0]
+            onclick_content = homologacao_link.get_attribute('onclick')
+            match = re.search(r"AbreJanelaDetalhes\((\d+),(\d+),\"HOMOLOGAÇÃO\"\)", onclick_content)
+            if match:
+                id_licitacao, id_evento = match.groups()
+                homologacao_url = f"https://www.imprensaoficial.com.br/ENegocios/popup/pop_e-nego_detalhes.aspx?IdLicitacao={id_licitacao}&IdEventoLicitacao={id_evento}"
+                print(f"Abrindo link de HOMOLOGAÇÃO: {homologacao_url}")
+                try:
                     driver.get(homologacao_url)
-                    sleep(2)
+                    print(f"URL atual: {driver.current_url}")
+                except StaleElementReferenceException:
+                    print("Elemento ficou stale. Tentando recapturar...")
+                    driver.get(homologacao_url)
+                
+                sleep(2)
 
-                    try:
-                        detalhes_texto = driver.find_element(By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao").text
-                        cnpj_match = re.search(r'CNPJ\s*(?:Nº|N.º|:|-)?\s*(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})', detalhes_texto)
-                        cnpj = cnpj_match.group(1) if cnpj_match else "Não encontrado"
+                try:
+                    detalhes_texto = driver.find_element(By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao").text
+                    cnpj_match = re.search(r'CNPJ\s*(?:Nº|N.º|:|-)?\s*(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})', detalhes_texto)
+                    cnpj = cnpj_match.group(1) if cnpj_match else "Não encontrado"
 
-                        razao_social_match = re.search(r'(?:EMPRESA VENCEDORA:|a favor da empresa|EMPRESA\s*[:-]\s*)(.*?)(?=\s*CNPJ)', detalhes_texto)
-                        razao_social = razao_social_match.group(1).strip() if razao_social_match else "Não encontrado"
+                    razao_social_match = re.search(r'(?:EMPRESA VENCEDORA:|a favor da empresa|EMPRESA\s*[:-]\s*)(.*?)(?=\s*CNPJ)', detalhes_texto)
+                    razao_social = razao_social_match.group(1).strip() if razao_social_match else "Não encontrado"
 
-                        ws.append([homologacao_url, cnpj, razao_social])
-                        wb.save("dados_vencedores_diario_sp.xlsx")
-                    except Exception as e:
-                        print(f"Erro ao capturar detalhes: {e}")
-
-        # Voltar à página inicial
-        driver.get(pagina_inicial_url)
-        sleep(2)
+                    ws.append([homologacao_url, cnpj, razao_social])
+                    wb.save("dados_vencedores_diario_sp.xlsx")
+                except StaleElementReferenceException:
+                    print("Elemento ficou stale. Tentando recapturar...")
+                    detalhes_texto = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.ID, "content_content_content_DetalheEvento_lblSintesePublicacao"))
+                    ).text
+    else:
+        print('Nao tem link de homologação')
+    # Voltar à página inicial
+    driver.get(pagina_inicial_url)
+    sleep(2)
 
     # Tentar clicar em "Próxima" ao final da página
     try:
