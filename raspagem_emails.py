@@ -7,8 +7,61 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from time import sleep
+import customtkinter as ctk
 
-def consulta_cnpj_gratis():
+def criar_interface_raspagem_emails():
+    janela = ctk.CTk()  # Janela principal
+    janela.geometry("500x300")
+    janela.title("Raspagem de E-mails")
+
+    # Label para exibir o número de e-mails raspados
+    label_contador = ctk.CTkLabel(janela, text="E-mails raspados: 0", font=("Arial", 16))
+    label_contador.pack(pady=10)
+
+    # Combobox para selecionar o site
+    label_selecione = ctk.CTkLabel(janela, text="Selecione o site:", font=("Arial", 14))
+    label_selecione.pack(pady=5)
+
+    site_selecionado = ctk.StringVar(value="CNPJ Já")
+    dropdown_site = ctk.CTkComboBox(janela, values=["Consulta Guru", "CNPJ Já"], variable=site_selecionado)
+    dropdown_site.pack(pady=5)
+
+    # Função de depuração para verificar a seleção
+    def verificar_selecao():
+        print(f"Site selecionado: {site_selecionado.get()}")
+
+    # Botão para iniciar a raspagem
+    def iniciar_raspagem():
+        site = site_selecionado.get()
+        print(f"Valor do site selecionado no botão: {site}")
+        if site == "Consulta Guru":
+            consulta_cnpj_gratis(label_contador, janela)
+        elif site == "CNPJ Já":
+            consulta_cnpj_ja(label_contador, janela)
+
+    # Botão de depuração para verificar o valor da seleção
+    botao_verificar = ctk.CTkButton(janela, text="Verificar Seleção", command=verificar_selecao)
+    botao_verificar.pack(pady=5)
+
+    botao_iniciar = ctk.CTkButton(janela, text="Iniciar Raspagem", command=iniciar_raspagem)
+    botao_iniciar.pack(pady=20)
+
+    janela.mainloop()
+
+def salvar_emails(resultados):
+    """
+    Salva os resultados no arquivo 'emails_vencedores.xlsx', evitando duplicatas.
+    """
+    df_resultados = pd.DataFrame(resultados)
+    if not os.path.exists("emails_vencedores.xlsx"):
+        df_resultados.to_excel("emails_vencedores.xlsx", index=False)
+    else:
+        df_existente = pd.read_excel("emails_vencedores.xlsx")
+        df_atualizado = pd.concat([df_existente, df_resultados]).drop_duplicates(subset="Email", keep="first")
+        df_atualizado.to_excel("emails_vencedores.xlsx", index=False)
+    print("E-mails salvos no arquivo 'emails_vencedores.xlsx'.")
+
+def consulta_cnpj_gratis(label_contador, janela):
     arquivos = [
         "dados_fornecedores.xlsx",
         "dados_vencedores_diario_sp.xlsx",
@@ -17,103 +70,103 @@ def consulta_cnpj_gratis():
         "dados_fornecedores_5.xlsx"
     ]
 
-    # Configuração do Selenium
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
     def limpar_cnpj(cnpj):
-        """Remove caracteres indesejados do CNPJ."""
         return ''.join(filter(str.isdigit, str(cnpj)))  # Mantém apenas dígitos
+
+    total_emails = 0
+    resultados = []
+    emails_unicos = set()
 
     try:
         for arquivo in arquivos:
-            if os.path.exists(arquivo):  # Verifica se o arquivo existe
-                print(f"Lendo arquivo: {arquivo}")
-                # Ler o arquivo
+            if os.path.exists(arquivo):
                 df = pd.read_excel(arquivo)
 
-                # Iterar sobre a coluna 1 (índice 1 no Python)
-                for cnpj in df.iloc[:, 1]:  # Segunda coluna do arquivo
-                    cnpj_limpo = limpar_cnpj(cnpj)  # Limpar o CNPJ
-                    if cnpj_limpo:  # Garantir que o CNPJ não esteja vazio
+                for cnpj in df.iloc[:, 1]:  # Segunda coluna
+                    cnpj_limpo = limpar_cnpj(cnpj)
+                    if cnpj_limpo:
                         link = f"https://consulta.guru/consultar-cnpj-gratis/{cnpj_limpo}"
-                        print(f"Acessando: {link}")
-
-                        # Acessar o link
                         driver.get(link)
-                        sleep(4)  # Pausa para garantir o carregamento da página
+                        sleep(4)
 
-            else:
-                print(f"Arquivo não encontrado: {arquivo}")
+                        try:
+                            email_element = driver.find_element(By.XPATH, '//p[contains(text(), "@")]')
+                            email = email_element.text.strip()
+
+                            if email not in emails_unicos:
+                                emails_unicos.add(email)
+                                resultados.append({"CNPJ": cnpj_limpo, "Email": email})
+                                total_emails += 1
+                                label_contador.configure(text=f"E-mails raspados: {total_emails}")
+                                janela.update()
+                        except Exception:
+                            pass  # Se não achar o email, passa para o próximo CNPJ
+
+                        if total_emails % 5 == 0:
+                            salvar_emails(resultados)
+                            janela.after(60000, salvar_emails, resultados)  # 60 segundos após salvar
+
+        salvar_emails(resultados)
     finally:
         driver.quit()
 
-def consulta_cnpj_ja():
+def consulta_cnpj_ja(label_contador, janela):
     arquivos = [
         "dados_fornecedores.xlsx",
-        "dados_fornecedores_2.xlsx",
-        "dados_fornecedores_3.xlsx",
-        "dados_fornecedores_4.xlsx",
+        "dados_vencedores_diario_sp.xlsx",
+        "dados_vencedores_adjudicados_bll_compras.xlsx",
+        "dados_vencedores_homologados_bll_compras.xlsx",
         "dados_fornecedores_5.xlsx"
     ]
 
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
     def limpar_cnpj(cnpj):
-        """Remove caracteres indesejados do CNPJ."""
-        return ''.join(filter(str.isdigit, str(cnpj)))  # Mantém apenas dígitos
+        return ''.join(filter(str.isdigit, str(cnpj)))
 
+    total_emails = 0
     resultados = []
+    emails_unicos = set()
 
     try:
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        consulta_contador = 0
-
         for arquivo in arquivos:
-            if os.path.exists(arquivo):  # Verifica se o arquivo existe
-                print(f"Lendo arquivo: {arquivo}")
+            if os.path.exists(arquivo):
                 df = pd.read_excel(arquivo)
 
-                for cnpj in df.iloc[:, 1]:  # Segunda coluna do arquivo
+                for cnpj in df.iloc[:, 1]:
                     cnpj_limpo = limpar_cnpj(cnpj)
                     if cnpj_limpo:
                         link = f"https://cnpja.com/office/{cnpj_limpo}"
-                        print(f"Acessando: {link}")
-
                         driver.get(link)
-                        sleep(2)  # Pausa para o carregamento da página
+                        sleep(2)
 
                         try:
-                            # Espera o email aparecer na página, usando XPath para capturar texto com "@"
                             email_element = WebDriverWait(driver, 10).until(
                                 EC.presence_of_element_located((By.XPATH, "//span[contains(text(), '@')]"))
                             )
-                            email = email_element.text.strip()  # Extrai o texto do email
-                            print(f"Email encontrado para {cnpj_limpo}: {email}")
-                        except Exception as e:
-                            email = "Não encontrado"
-                            print(f"Email não encontrado para {cnpj_limpo}: {e}")
+                            email = email_element.text.strip()
 
-                        # Adiciona o resultado à lista
-                        resultados.append({"CNPJ": cnpj_limpo, "Email": email})
+                            if email not in emails_unicos:
+                                emails_unicos.add(email)
+                                resultados.append({"CNPJ": cnpj_limpo, "Email": email})
+                                total_emails += 1
+                                label_contador.configure(text=f"E-mails raspados: {total_emails}")
+                                janela.update()
+                        except Exception:
+                            pass  # Se não achar o email, passa para o próximo CNPJ
 
-                        df_resultados = pd.DataFrame(resultados)
-                        df_resultados.to_excel("resultado_cnpja.xlsx", index=False)
-                        print("Resultados salvos em 'resultado_cnpja.xlsx'")
+                        if total_emails % 5 == 0:
+                            salvar_emails(resultados)
+                            janela.after(60000, salvar_emails, resultados)  # 60 segundos após salvar
 
-                        consulta_contador += 1
-
-                        if consulta_contador % 5 == 0:  # A cada 5 consultas
-                            print("Aguardando 60 segundos para evitar bloqueio...")
-                            sleep(60)  # Aguarda 1 minuto
+        salvar_emails(resultados)
     finally:
         driver.quit()
-    
-    # Salvar os resultados em um arquivo Excel
-    df_resultados = pd.DataFrame(resultados)
-    df_resultados.to_excel("resultado_cnpja.xlsx", index=False)
-    print("Resultados salvos em 'resultado_cnpja.xlsx'")
 
-consulta_cnpj_ja()
+criar_interface_raspagem_emails()
