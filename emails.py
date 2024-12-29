@@ -29,26 +29,25 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 def enviar_emails():
     driver = webdriver.Chrome()
-    driver.get('https://www.mautic.org/')
-
-    botao_register = WebDriverWait(driver, 10).until(
-    EC.presence_of_element_located((By.XPATH, "//a[contains(@href, '/user/login')]"))
-    )
-    driver.execute_script("arguments[0].scrollIntoView(true);", botao_register)
-    driver.execute_script("arguments[0].click();", botao_register)
+    driver.get('https://marilirequiaseguros.com.br/mautic/s/login')
 
 
     login = 'luiz.logika@gmail.com'
     password = 'Dev123@'
     logar = WebDriverWait(driver,5).until(
-        EC.element_to_be_clickable((By.XPATH,"//input[@class='auth0-lock-input']"))
+        EC.element_to_be_clickable((By.XPATH,"//input[@id='username']"))
     )
     logar.send_keys(login)
 
     password_enter = WebDriverWait(driver,5).until(
-        EC.element_to_be_clickable((By.XPATH,"//input[@id='1-password']"))
+        EC.element_to_be_clickable((By.XPATH,"//input[@type='password']"))
     )
     password_enter.send_keys(password)
+
+    enter = WebDriverWait(driver,5).until(
+        EC.element_to_be_clickable((By.XPATH,"//button[@class='btn btn-lg btn-primary btn-block']"))
+    )
+    enter.click()
 
     sleep(5)
     driver.quit()
