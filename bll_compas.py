@@ -39,6 +39,13 @@ def limpa_campo():
         pyautogui.press('backspace')
 
 def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs):
+    
+    progresso_json = "progresso.json"
+
+    if os.path.exists(progresso_json):
+        os.remove(progresso_json)
+        print(f"Arquivo {progresso_json} excluído.")
+
     current_dir = os.getcwd()
     if status_processo == "HOMOLOGADO":
         pasta_destino = os.path.join(current_dir, "vencedores_bll_compras_homologado")
@@ -107,6 +114,9 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     original_url = driver.current_url
 
     elements = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
+
+    pdfs_baixados = 0
+    
     progresso = carregar_progresso()
     pdfs_baixados = progresso["pdfs_baixados"]
 
