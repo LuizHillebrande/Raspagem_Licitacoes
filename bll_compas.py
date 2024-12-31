@@ -92,7 +92,7 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     driver = webdriver.Chrome(options=chrome_options)
     driver.get('https://bllcompras.com/Process/ProcessSearchPublic?param1=0#')
 
-    scroll_ate_resultados_estabilizarem(driver)
+    
 
     # Aguarda até que o elemento de seleção de status esteja presente
     select_element = WebDriverWait(driver, 10).until(
@@ -128,6 +128,8 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     )
     icon.click()
 
+    scroll_ate_resultados_estabilizarem(driver)
+
     # Espera até que a lista de elementos de informações esteja carregada
     WebDriverWait(driver, 10).until(
         EC.presence_of_all_elements_located((By.CSS_SELECTOR, "i.fas.fa-info-circle"))
@@ -153,7 +155,10 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
         element = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable(element)
         )
-        element.click()
+        driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
+        action = ActionChains(driver)
+        action.move_to_element(element).click().perform()
+        
         time.sleep(2)
         print("BOTAO 1 CLICADO")
         
@@ -296,7 +301,7 @@ def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
                             root.update()
                             if cnpjs:
                                 print(f"CNPJs encontrados no arquivo {arquivo}: {cnpjs}")
-                                cnpjs_encontrados.extend(cnpjs)
+                                cnpjs_encontrados.update(cnpjs)
             except Exception as e:
                 print(f"Erro ao processar {arquivo}: {e}")
 
