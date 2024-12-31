@@ -38,8 +38,29 @@ def limpa_campo():
     for _ in range(10):
         pyautogui.press('backspace')
 
+def scroll_ate_resultados_estabilizarem(driver):
+    # Obter o número inicial de resultados
+    resultado_atual = driver.find_element(By.ID, "footResultCount").text
+    resultado_atual = int(resultado_atual.split(":")[-1].strip())
+
+    while True:
+        # Rolar para baixo
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)  # Aguarda o carregamento dos novos resultados
+
+        # Obter o novo número de resultados
+        novo_resultado = driver.find_element(By.ID, "footResultCount").text
+        novo_resultado = int(novo_resultado.split(":")[-1].strip())
+
+        # Verificar se o número de resultados mudou
+        if novo_resultado == resultado_atual:
+            print(f"Número de resultados estabilizado: {novo_resultado}")
+            break
+        else:
+            resultado_atual = novo_resultado  # Atualiza o número de resultados
+
 def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs):
-    
+
     progresso_json = "progresso.json"
 
     if os.path.exists(progresso_json):
@@ -70,6 +91,8 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
 
     driver = webdriver.Chrome(options=chrome_options)
     driver.get('https://bllcompras.com/Process/ProcessSearchPublic?param1=0#')
+
+    scroll_ate_resultados_estabilizarem(driver)
 
     # Aguarda até que o elemento de seleção de status esteja presente
     select_element = WebDriverWait(driver, 10).until(
