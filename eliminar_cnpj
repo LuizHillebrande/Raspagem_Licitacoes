@@ -5,32 +5,36 @@ import os
 
 def carregar_cnpjs_de_arquivos(arquivos):
     cnpjs_unicos = set()  # Usando um set para garantir que não haja CNPJs duplicados
+    cnpjs_ocorrencias = []  # Lista para armazenar todas as ocorrências de CNPJs (mesmo duplicados)
 
     for arquivo in arquivos:
         wb = openpyxl.load_workbook(arquivo)
         ws = wb.active
         
-       
-        for row in ws.iter_rows(min_row=2, max_col=2, values_only=True):  # Pular o cabeçalho
-            cnpj = row[1] 
+        # Itera pelas linhas e coleta os CNPJs
+        for row in ws.iter_rows(min_row=2, max_col=2, values_only=True):  # Pula o cabeçalho
+            cnpj = row[1]
             if cnpj:
-                cnpjs_unicos.add(cnpj.strip())  # Adiciona o CNPJ ao set (remover espaços extras)
+                cnpj = cnpj.strip()
+                cnpjs_ocorrencias.append(cnpj)  # Adiciona todas as ocorrências
+                cnpjs_unicos.add(cnpj)  # Adiciona apenas CNPJs únicos
 
-    return cnpjs_unicos
+    return cnpjs_unicos, cnpjs_ocorrencias
 
-def salvar_cnpjs_unicos(cnpjs_unicos, nome_arquivo="cnpjs_unicos.xlsx"):
+def salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias, nome_arquivo="cnpjs_unicos.xlsx"):
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.append(["CNPJ"])  # Cabeçalho da planilha
+    ws.append(["CNPJ", "Ocorrências"])  # Cabeçalho da planilha
 
     for cnpj in cnpjs_unicos:
-        ws.append([cnpj])
+        ocorrencias = cnpjs_ocorrencias.count(cnpj)  # Conta quantas vezes o CNPJ aparece
+        ws.append([cnpj, ocorrencias])  # Adiciona o CNPJ e o número de ocorrências
 
     wb.save(nome_arquivo)
-    print(f"CNPJs únicos salvos em: {nome_arquivo}")
+    print(f"CNPJs únicos e suas ocorrências salvos em: {nome_arquivo}")
 
 def eliminar_cnpjs():
-     # Lista de arquivos que devem ser processados
+    # Lista de arquivos que devem ser processados
     arquivos = ["dados_fornecedores.xlsx", "dados_fornecedores_2.xlsx"]
 
     # Verifica se os arquivos existem
@@ -41,8 +45,9 @@ def eliminar_cnpjs():
         messagebox.showwarning("Atenção", "Nenhum arquivo de dados foi encontrado para eliminar CNPJs duplicados.")
         return
 
-    cnpjs_unicos = carregar_cnpjs_de_arquivos(arquivos_existentes)
+    cnpjs_unicos, cnpjs_ocorrencias = carregar_cnpjs_de_arquivos(arquivos_existentes)
 
-
-    salvar_cnpjs_unicos(cnpjs_unicos)
+    salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias)
     messagebox.showinfo("Concluído", "CNPJs duplicados eliminados com sucesso!")
+
+eliminar_cnpjs()
