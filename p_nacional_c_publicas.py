@@ -8,6 +8,67 @@ import customtkinter as ctk
 from tkinter import messagebox
 import os
 import threading
+from datetime import datetime
+import logging
+
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+data_mais_recente = None
+data_mais_antiga = None
+intervalo_label = None
+
+def atualizar_intervalo_datas(datas):
+    global data_mais_recente, data_mais_antiga
+    if datas:
+        data_atual_mais_recente = max(datas)
+        data_atual_mais_antiga = min(datas)
+        
+        # Atualizar as variáveis globais
+        if not data_mais_recente or data_atual_mais_recente > data_mais_recente:
+            data_mais_recente = data_atual_mais_recente
+        if not data_mais_antiga or data_atual_mais_antiga < data_mais_antiga:
+            data_mais_antiga = data_atual_mais_antiga
+
+        # Atualizar o Label na interface gráfica
+        intervalo_label.configure(
+            text=f"Filtrado de {data_mais_antiga.strftime('%d/%m/%Y')} até {data_mais_recente.strftime('%d/%m/%Y')}"
+        )
+
+def extrair_datas_da_pagina(driver):
+    datas_extradas = []
+    try:
+        elementos = driver.find_elements(By.XPATH, "//div[@class='datatable-body-cell-label']")
+        for elemento in elementos:
+            texto = elemento.text.strip()
+            try:
+                # Tentar converter o texto em uma data
+                data = datetime.strptime(texto, "%d/%m/%Y")
+                datas_extradas.append(data)
+            except ValueError:
+                # Ignorar valores que não sejam datas
+                continue
+    except Exception as e:
+        logging.error(f"Erro ao extrair datas: {e}")
+    return datas_extradas
+
+def extrair_data_assinatura(driver):
+    try:
+        strong_element = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//strong[text()='Data de assinatura:']"))
+        )
+
+        # Encontrar o <span> imediatamente após o <strong> encontrado
+        span_data_element = strong_element.find_element(By.XPATH, "following-sibling::span")
+
+        # Extrair o texto da data
+        data_texto = span_data_element.text.strip()
+
+        # Retornar a data extraída
+        return data_texto
+    except Exception as e:
+        logging.error(f"Erro ao extrair a data de assinatura: {e}")
+        return "Não encontrada"
 
 # Configurar o tema dark
 ctk.set_appearance_mode("Dark")
@@ -27,12 +88,11 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
     # Criar a planilha para salvar os dados
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.append(["Link", "CNPJ", "Razão Social"])  # Cabeçalho da planilha
+    ws.append(["Link", "CNPJ", "Razão Social", "Data de Divulgação no PNCP", "Data de Assinatura"])
 
     for pagina in range(1, 1000):  # De 1 a 999
         url = f'https://pncp.gov.br/app/contratos?q=&pagina={pagina}'
         driver.get(url)
-        wb.save("dados_fornecedores.xlsx")
 
         # Aguardar o carregamento dos elementos
         time.sleep(3)  # Espera de 3 segundos para garantir que a página carregue
@@ -73,8 +133,25 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
                         print(f"Botão {i}: Erro ao extrair a Razão Social - {e}")
                         razao_social = "Não encontrado"
 
+                    datas_pagina = extrair_datas_da_pagina(driver)
+                    if datas_pagina:
+                        data_divulgacao = datas_pagina[0].strftime("%d/%m/%Y")  # Usando a primeira data extraída
+                    else:
+                        data_divulgacao = "Não encontrada"
+                    
+                    data_texto = extrair_data_assinatura(driver)
+
+                    # Atualizar intervalo de datas
+                    atualizar_intervalo_datas(datas_pagina)
+
+                    print(f"Data mais recente: {data_mais_recente.strftime('%d/%m/%Y')}")
+                    print(f"Data mais antiga: {data_mais_antiga.strftime('%d/%m/%Y')}")
+                    
+                    
                     # Salvar os dados na planilha
-                    ws.append([link, cnpj, razao_social])
+                    ws.append([link, cnpj, razao_social, data_divulgacao, data_texto])
+                    wb.save("dados_fornecedores.xlsx")
+
                 except Exception as e:
                     print(f"Erro ao processar o botão {i}: {e}")
           
@@ -82,25 +159,7 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
             print(f"Erro ao acessar a página {pagina}: {e}")
 
     # Salvar a planilha
-    wb.save("dados_fornecedores.xlsx")
-    driver.quit()
-    messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
-
-def iniciar_raspagem_Portal_de_compras_publicas():
-    driver = webdriver.Chrome()
-    driver.get('https://www.portaldecompraspublicas.com.br/')
-
-    # Criar a planilha para salvar os dados
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.append(["Link", "CNPJ", "Razão Social"])  
-
-    time.sleep(3)  
-    WebDriverWait(driver,5).until(
-        EC.element_to_be_clickable((By.XPATH,"//a[@href class='busca-av']"))
-    )
-            
-    wb.save("dados_vencedores_portal_compras_publicas.xlsx")
+    
     driver.quit()
     messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
 
@@ -110,6 +169,7 @@ def iniciar_raspagem():
 # Criando a interface gráfica com CustomTkinter
 def criar_interface_pncp():
     global cnpj_label
+    global intervalo_label
 
     # Configuração da janela
     janela = ctk.CTk()
@@ -128,6 +188,11 @@ def criar_interface_pncp():
     cnpj_label = ctk.CTkLabel(janela, text="CNPJs extraídos: 0", font=("Arial", 14))
     cnpj_label.pack(pady=10)
 
+    intervalo_label = ctk.CTkLabel(janela, text="Filtrado de --/--/---- até --/--/----", font=("Arial", 14))
+    intervalo_label.pack(pady=10)
+
     # Iniciar a interface
     janela.mainloop()
+
+criar_interface_pncp()
 
