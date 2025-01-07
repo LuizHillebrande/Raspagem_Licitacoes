@@ -8,6 +8,7 @@ from time import sleep
 import random
 import customtkinter as ctk
 import re
+from selenium.webdriver.common.action_chains import ActionChains
 
 def iniciar_raspagem_compras_gov(ano):
     # Inicializa o navegador com undetected_chromedriver
@@ -43,12 +44,57 @@ def iniciar_raspagem_compras_gov(ano):
     sleep(random.uniform(1, 3))  # Delay aleatório
 
     # Coleta os links únicos
-    elements = driver.find_element(By.XPATH, "//i[@class='fa fa-tasks']")
+    elements = driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']")
     qtde_apps_card = len(driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']"))
-                         
-    print(qtde_apps_card)
-    sleep(15)
-    
+
+    for index, element in enumerate(elements, start=1):
+        print(f"Elemento {index} de {len(elements)}")
+        driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
+        action = ActionChains(driver)
+        action.move_to_element(element).click().perform()   
+        print('clicado')  
+        action.move_to_element(element).click().perform()  
+        print('clicado dnv')
+        print(qtde_apps_card)
+        
+        sleep(random.uniform(1, 3))
+        elements_details = driver.find_elements(By.XPATH, "//i[@class='fa-tasks fas']")
+        if elements_details:
+            for index, elementt in enumerate(elements_details, start=1):
+                print(f"Clicando no elemento {index} de {len(elements_details)}")
+
+                # Rolando suavemente até o elemento
+                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", elementt)
+
+                # Ação para mover até o elemento e clicar
+                action = ActionChains(driver)
+                action.move_to_element(elementt).click().perform()
+
+                print(f'Elemento {index} clicado com sucesso.')
+                
+
+                elementos_situacao = WebDriverWait(driver, 10).until(
+                    EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div[data-test='situacao-proposta']"))
+                )
+
+                # Itera sobre os elementos encontrados
+                for elemento_situacao in elementos_situacao:
+                    # Obtém o texto do elemento
+                    situacao_texto = elemento_situacao.text.strip()
+
+                    # Verifica se o texto é "Adjudicada"
+                    if situacao_texto.lower() == "adjudicada":
+                        print("A proposta está adjudicada. Realizando ações subsequentes...")
+                        chevron_icon = elemento_situacao.find_element(By.XPATH, ".//i[@class='fas fa-chevron-down']")
+                        
+                        # Clicar no ícone
+                        chevron_icon.click()
+                        print("Clicou no ícone de chevron.")
+                        break  
+                    
+
+        else:
+            print("Nenhum elemento encontrado.")
     wb.save("dados_vencedores_portal_compras_publicas.xlsx")
     sleep(15)
     driver.quit()
