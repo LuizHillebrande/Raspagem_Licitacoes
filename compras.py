@@ -6,11 +6,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from tkinter import messagebox
 from time import sleep
 import random
+import customtkinter as ctk
+import re
 
-def iniciar_raspagem_compras_gov():
+def iniciar_raspagem_compras_gov(ano):
     # Inicializa o navegador com undetected_chromedriver
     driver = uc.Chrome()
     driver.get('https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/compras')
+    driver.maximize_window()
     sleep(random.uniform(1, 3))  # Delay aleatório
 
     # Criar a planilha para salvar os dados
@@ -18,41 +21,56 @@ def iniciar_raspagem_compras_gov():
     ws = wb.active
     ws.append(["Link", "CNPJ", "Razão Social"])  
 
-    try:
-        # Interage com o filtro
-        filtro = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//div[@class='p-radiobutton-box']"))
-        )
-        filtro.click()
-        sleep(random.uniform(1, 3))  # Delay aleatório
+    # Interage com o filtro
+    filtro = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//div[@class='p-radiobutton-box']"))
+    )
+    filtro.click()
+    sleep(random.uniform(1, 3))  # Delay aleatório
+
+
+    input_ano = WebDriverWait(driver,5).until(
+        EC.element_to_be_clickable((By.XPATH,"//input[@placeholder='Ex: 102021']"))
+    )
+    input_ano.send_keys(ano)
+    sleep(random.uniform(1, 3))
 
         # Clica no botão pesquisar
-        button_pesquisar = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[@class='br-button is-primary']"))
-        )
-        button_pesquisar.click()
-        sleep(random.uniform(1, 3))  # Delay aleatório
+    button_pesquisar = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[@class='br-button is-primary']"))
+    )
+    button_pesquisar.click()
+    sleep(random.uniform(1, 3))  # Delay aleatório
 
-        # Coleta os links únicos
-        botoes_compras_gov = driver.find_elements(By.XPATH, "//button[contains(@class, 'button-class')]")
-        botoes_unicos = list(dict.fromkeys([botao.get_attribute('href') for botao in botoes_compras_gov if botao.get_attribute('href')]))
+    # Coleta os links únicos
+    elements = driver.find_element(By.XPATH, "//i[@class='fa fa-tasks']")
+    qtde_apps_card = len(driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']"))
+                         
+    print(qtde_apps_card)
+    sleep(15)
+    
+    wb.save("dados_vencedores_portal_compras_publicas.xlsx")
+    sleep(15)
+    driver.quit()
+    messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
 
-        print(f"Total de botões encontrados: {len(botoes_unicos)}")
+def iniciar():
+    ano = entry_ano.get()  # Obtém o valor digitado na interface
+    if ano:
+        iniciar_raspagem_compras_gov(ano)  # Passa o ano para a função de raspagem
+    else:
+        messagebox.showwarning("Erro", "Por favor, insira um ano.")
 
-        for i, link in enumerate(botoes_unicos, start=1):
-            try:
-                driver.get(link)
-                sleep(random.uniform(2, 5))  # Simula tempo de leitura da página
-            except Exception as msg:
-                print(f"Erro ao acessar o link {link}: {msg}")
+root = ctk.CTk()
+root.title("Raspagem Compras Gov")
 
-    except Exception as e:
-        print(f"Erro na execução: {e}")
+# Campo de entrada para o ano
+entry_ano = ctk.CTkEntry(root, placeholder_text="Digite o ano (Ex: 102021)")
+entry_ano.pack(pady=10)
 
-    finally:
-        # Salva a planilha e encerra o navegador
-        wb.save("dados_vencedores_portal_compras_publicas.xlsx")
-        driver.quit()
-        messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
+# Botão para iniciar o processo
+button_iniciar = ctk.CTkButton(root, text="Iniciar Raspagem", command=iniciar)
+button_iniciar.pack(pady=10)
 
-iniciar_raspagem_compras_gov()
+# Rodar a interface
+root.mainloop()

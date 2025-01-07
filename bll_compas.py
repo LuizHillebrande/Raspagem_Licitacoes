@@ -38,20 +38,21 @@ def limpa_campo():
     for _ in range(10):
         pyautogui.press('backspace')
 
-def scroll_ate_resultados_estabilizarem(driver):
+def scroll_ate_resultados_estabilizarem(driver, label):
     # Obter o número inicial de resultados
     resultado_atual = driver.find_element(By.ID, "footResultCount").text
     resultado_atual = int(resultado_atual.split(":")[-1].strip())
-
+    label.configure(text=f"Resultados encontrados: {resultado_atual}")
     while True:
         # Rolar para baixo
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2)  # Aguarda o carregamento dos novos resultados
+        time.sleep(4)  # Aguarda o carregamento dos novos resultados
 
         # Obter o novo número de resultados
         novo_resultado = driver.find_element(By.ID, "footResultCount").text
         novo_resultado = int(novo_resultado.split(":")[-1].strip())
-
+        label.configure(text=f"Resultados encontrados: {novo_resultado}")
+        root.update()
         # Verificar se o número de resultados mudou
         if novo_resultado == resultado_atual:
             print(f"Número de resultados estabilizado: {novo_resultado}")
@@ -59,7 +60,7 @@ def scroll_ate_resultados_estabilizarem(driver):
         else:
             resultado_atual = novo_resultado  # Atualiza o número de resultados
 
-def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs):
+def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs, label):
 
     progresso_json = "progresso.json"
 
@@ -91,6 +92,7 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
 
     driver = webdriver.Chrome(options=chrome_options)
     driver.get('https://bllcompras.com/Process/ProcessSearchPublic?param1=0#')
+    driver.maximize_window()
 
     
 
@@ -128,7 +130,7 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     )
     icon.click()
 
-    scroll_ate_resultados_estabilizarem(driver)
+    scroll_ate_resultados_estabilizarem(driver, label)
 
     # Espera até que a lista de elementos de informações esteja carregada
     WebDriverWait(driver, 10).until(
@@ -263,7 +265,7 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
 
     # Espera um pouco mais para garantir que o download seja iniciado
     time.sleep(5)  # Pausa de 5 segundos antes de fechar o driver
-    
+    scroll_ate_resultados_estabilizarem(driver)
     driver.quit()  # Fechamento do driver após a execução
 
 def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
@@ -414,6 +416,10 @@ def criar_interface():
 
     label_contador_cnpjs = ctk.CTkLabel(root, text="CNPJs Extraídos: 0")
     label_contador_cnpjs.pack()
+
+    global label_contador_resultados
+    label_contador_resultados = ctk.CTkLabel(root, text="Resultados encontrados: 0")
+    label_contador_resultados.pack()
 
     # Label de erro ou sucesso
     label_erro = ctk.CTkLabel(root, text="")
