@@ -77,7 +77,6 @@ def iniciar_raspagem_compras_gov(ano):
                     EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div[data-test='situacao-proposta']"))
                 )
 
-                # Itera sobre os elementos encontrados
                 for elemento_situacao in elementos_situacao:
                     # Obtém o texto do elemento
                     situacao_texto = elemento_situacao.text.strip()
@@ -85,12 +84,25 @@ def iniciar_raspagem_compras_gov(ano):
                     # Verifica se o texto é "Adjudicada"
                     if situacao_texto.lower() == "adjudicada":
                         print("A proposta está adjudicada. Realizando ações subsequentes...")
-                        chevron_icon = elemento_situacao.find_element(By.XPATH, ".//i[@class='fas fa-chevron-down']")
-                        
-                        # Clicar no ícone
-                        chevron_icon.click()
-                        print("Clicou no ícone de chevron.")
-                        break  
+
+                        # Agora, encontra o contêiner de proposta
+                        try:
+                            container = elemento_situacao.find_element(By.XPATH, "./ancestor::div[@data-test='propostaItemEmSelecaoFornecedores']")  # Encontra o contêiner pai
+                            # Espera até que o botão de expansão esteja visível e clicável
+                            botao_expansao = WebDriverWait(container, 10).until(
+                                EC.element_to_be_clickable((By.XPATH, ".//button[@data-test='btn-expandir']//i[contains(@class, 'fas fa-chevron-down')]"))
+                            )
+                            # Clica no botão de expansão
+                            botao_expansao.click()
+                            print("Clicou no ícone de expansão (chevron).")
+                            
+                            # Adicione o código para realizar ações posteriores após clicar no botão
+                            break  # Caso já tenha encontrado a adjudicada, interrompe o loop
+                        except Exception as e:
+                            print(f"Erro ao encontrar o botão de expansão: {e}")
+                            continue  # Caso o botão não seja encontrado, tenta com o próximo elemento
+                    else:
+                        print(f"A proposta não está adjudicada, está em: {situacao_texto}")
                     
 
         else:
