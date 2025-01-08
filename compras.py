@@ -47,7 +47,15 @@ def iniciar_raspagem_compras_gov(ano):
     elements = driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']")
     qtde_apps_card = len(driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']"))
 
-    for index, element in enumerate(elements, start=1):
+    for index, element in enumerate(elements, start=0):
+
+        elements = driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']")
+        element = elements[index]
+        #reencontra o elemento
+        element = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(element)
+        )
+
         print(f"Elemento {index} de {len(elements)}")
         driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
         action = ActionChains(driver)
@@ -93,17 +101,21 @@ def iniciar_raspagem_compras_gov(ano):
                                 EC.visibility_of_element_located((By.XPATH, ".//span[@data-test='identificacao-participante']"))
                             )
                             cnpj = container_cnpj.text
-                            print(cnpj)
-                            sleep(10)
-            
+                            print('cnpj encontrado:',cnpj)
+                            
+                            print("Voltando para a página principal...")
+                            driver.back()  # Primeira vez
+                            sleep(2)
+                            driver.back()  # Segunda vez
+                            sleep(2)
+                        
                             
                             # Adicione o código para realizar ações posteriores após clicar no botão
                             break  # Caso já tenha encontrado a adjudicada, interrompe o loop
                         except Exception as e:
                             print(f"Erro ao encontrar o botão de expansão: {e}")
                             continue  # Caso o botão não seja encontrado, tenta com o próximo elemento
-                    else:
-                        print(f"A proposta não está adjudicada, está em: {situacao_texto}")
+    
                     
 
         else:
