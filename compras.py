@@ -89,12 +89,13 @@ def iniciar_raspagem_compras_gov(ano):
                         try:
                             container = elemento_situacao.find_element(By.XPATH, "./ancestor::div[@data-test='propostaItemEmSelecaoFornecedores']")  # Encontra o contêiner pai
                             # Espera até que o botão de expansão esteja visível e clicável
-                            botao_expansao = WebDriverWait(container, 10).until(
-                                EC.element_to_be_clickable((By.XPATH, ".//button[@data-test='btn-expandir']//i[contains(@class, 'fas fa-chevron-down')]"))
+                            container_cnpj = WebDriverWait(container, 10).until(
+                                EC.visibility_of_element_located((By.XPATH, ".//span[@data-test='identificacao-participante']"))
                             )
-                            # Clica no botão de expansão
-                            botao_expansao.click()
-                            print("Clicou no ícone de expansão (chevron).")
+                            cnpj = container_cnpj.text
+                            print(cnpj)
+                            sleep(10)
+            
                             
                             # Adicione o código para realizar ações posteriores após clicar no botão
                             break  # Caso já tenha encontrado a adjudicada, interrompe o loop
