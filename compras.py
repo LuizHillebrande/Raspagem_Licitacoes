@@ -73,12 +73,14 @@ def iniciar_raspagem_compras_gov(ano):
 
                 # Rolando suavemente até o elemento
                 driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", elementt)
+                
 
                 # Ação para mover até o elemento e clicar
                 action = ActionChains(driver)
                 action.move_to_element(elementt).click().perform()
 
                 print(f'Elemento {index} clicado com sucesso.')
+                sleep(3)
                 
 
                 elementos_situacao = WebDriverWait(driver, 10).until(
@@ -95,7 +97,7 @@ def iniciar_raspagem_compras_gov(ano):
 
                         # Agora, encontra o contêiner de proposta
                         try:
-                            container = elemento_situacao.find_element(By.XPATH, "./ancestor::div[@data-test='propostaItemEmSelecaoFornecedores']")  # Encontra o contêiner pai
+                            container = elemento_situacao.find_element(By.XPATH, "./ancestor::div[contains(@data-test, 'propostaItemEmSelecaoFornecedores')]")
                             # Espera até que o botão de expansão esteja visível e clicável
                             container_cnpj = WebDriverWait(container, 10).until(
                                 EC.visibility_of_element_located((By.XPATH, ".//span[@data-test='identificacao-participante']"))
