@@ -78,7 +78,7 @@ def iniciar_raspagem_compras_gov(ano):
     elements = driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']")
     qtde_apps_card = len(driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']"))
 
-    for index, element in enumerate(elements, start=6):
+    for index, element in enumerate(elements, start=0):
 
         elements = driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']")
         element = elements[index]
@@ -118,39 +118,7 @@ def iniciar_raspagem_compras_gov(ano):
                 
                 situacao_texto, adjudicada_encontrada = verifica_ajudicacao(driver)
 
-
-                if cont_element_details > 1 and situacao_texto.lower() == "adjudicada":
-                    print('tem mais de 1 item e o 1 item tinha adjudicada')
-                    driver.back() 
-                    sleep(3) # Primeira vez
-                    elements_details = driver.find_elements(By.XPATH, "//i[@class='fa-tasks fas']")
-                    print(f'numero de elements_details após back: {len(elements_details)}')
-                    if index < len(elements_details):  # Verifica se o índice ainda é válido
-                        elementt = elements_details[index]
-                    else:
-                        print(f"Índice {index} fora do intervalo após driver.back()! Número total de elementos: {len(elements_details)}")
-                        
-                    
-                    print('Tentando clicar em elementt')
-                    driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", elementt)
-                    action.move_to_element(elementt).click().perform()
-                    print('Elementt clicado')
-
-
-                    driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", elementt)
-                    action.move_to_element(elementt).click().perform()
-                    print('clicado denovo')
-
-                    sleep(2)
-                    situacao_texto, adjudicada_encontrada = verifica_ajudicacao(driver)
-                    sleep(1)
-                    driver.back()
-                    sleep(3)
-                    driver.back()
-                    break
-
-
-                elif cont_element_details > 0 and not adjudicada_encontrada:
+                if cont_element_details > 0 and not adjudicada_encontrada:
                         print('Tinha mais que 1 botao, porem o 1 nao tinha adjudicada')
                         driver.back()
                         sleep(2)
