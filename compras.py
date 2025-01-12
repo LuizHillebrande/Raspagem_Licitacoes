@@ -79,6 +79,7 @@ def iniciar_raspagem_compras_gov(ano):
     qtde_apps_card = len(driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']"))
 
     for index, element in enumerate(elements, start=0):
+        
 
         elements = driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']")
         element = elements[index]
@@ -87,7 +88,7 @@ def iniciar_raspagem_compras_gov(ano):
             EC.element_to_be_clickable(element)
         )
 
-        print(f"Elemento {index} de {len(elements)}")
+        print(f"Elemento {index+1} de {len(elements)}")
         driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
         action = ActionChains(driver)
         action.move_to_element(element).click().perform()   
@@ -100,8 +101,8 @@ def iniciar_raspagem_compras_gov(ano):
         
         elements_details = driver.find_elements(By.XPATH, "//i[@class='fa-tasks fas']")
         if elements_details:
-            for index, elementt in enumerate(elements_details, start=1):
-                print(f"Clicando no elemento {index} de {len(elements_details)}")
+            for index_details, elementt in enumerate(elements_details, start=1):
+                print(f"Clicando no elemento {index_details} de {len(elements_details)}")
                 cont_element_details = len(elements_details)
                 
 
@@ -132,10 +133,19 @@ def iniciar_raspagem_compras_gov(ano):
                     sleep(2)
                     driver.back()  # Segunda vez
                     sleep(2)
-            
+
+                next_page = WebDriverWait(driver,5).until(
+                    EC.element_to_be_clickable((By.XPATH,"//button[@class='p-ripple p-element p-paginator-next p-paginator-element p-link']"))
+                )
                 
-                # Adicione o código para realizar ações posteriores após clicar no botão
-                break  # Caso já tenha encontrado a adjudicada, interrompe o loop
+                print(f'Elemento atual: {index}, último elemento: {qtde_apps_card - 1}')
+
+                if index == qtde_apps_card - 1:
+                    print(f'Elemento atual: {index}, último elemento: {(qtde_apps_card) - 1}')
+                    next_page.click()
+                else:
+                    break
+                    
                         
         else:
             print("Nenhum elemento encontrado.")
