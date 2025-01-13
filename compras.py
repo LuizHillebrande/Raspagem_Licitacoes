@@ -126,9 +126,6 @@ def raspar_pagina(driver, wb):
                         
         else:
             print("Nenhum elemento encontrado.")
-            driver.back()
-            sleep(2)
-            
     wb.save("dados_vencedores_portal_compras_publicas.xlsx")
     sleep(15)
     driver.quit()
