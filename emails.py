@@ -175,12 +175,48 @@ def enviar_emails():
     pyautogui.press('enter')
     sleep(2)
 
+    importacao_plano_fundo  = WebDriverWait(driver,5).until(
+        EC.element_to_be_clickable((By.XPATH,"//button[@id='lead_field_import_buttons_apply_toolbar']"))
+    )
+    importacao_plano_fundo.click()
+
+    nome_arquivo = os.path.basename(caminho_arquivo_selecionado)
+
+    link_arquivo = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.XPATH, f"//a[contains(@href, 'view/') and contains(text(), '{nome_arquivo}')]"))
+    )
+
+    # Agora, monitoramos o progresso
+    monitorar_progresso(driver, nome_arquivo)
 
     
-
-
     sleep(15)
     driver.quit()
+
+def monitorar_progresso(driver, nome_arquivo):
+    while True:
+        try:
+            # Encontrar o elemento de progresso com base no nome do arquivo
+            td_progresso = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, f"//a[contains(@href, 'view/') and contains(text(), '{nome_arquivo}')]/following::td[1]"))
+            )
+
+            # Verificar o valor do progresso
+            progresso_texto = td_progresso.text
+            print(f"Progresso: {progresso_texto}")  # Imprimir a porcentagem atual
+
+            # Se o progresso for 100%, sai do loop
+            if progresso_texto == "100%":
+                print("Progresso chegou a 100%!")
+                break
+
+            # Espera 2 segundos antes de verificar novamente
+            sleep(2)
+
+        except Exception as e:
+            print(f"Erro ao monitorar o progresso: {e}")
+            break
+
 
 caminho_arquivo_selecionado = ""
 
