@@ -85,6 +85,7 @@ def raspar_pagina(driver, wb):
         if not elements_details and url_inicial != url_atual:
              print('Nao achei element details mas a URL mudou, voltando de pagina')
              driver.back()
+             sleep(3)
              continue
         if elements_details and url_inicial != url_atual:
             print('Entrei em element details')
