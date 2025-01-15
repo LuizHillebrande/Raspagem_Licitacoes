@@ -65,6 +65,8 @@ def raspar_pagina(driver, wb):
             EC.element_to_be_clickable(element)
         )
 
+        url_inicial = driver.current_url
+
         print(f"Elemento {index+1} de {len(elements)}")
         driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
         action = ActionChains(driver)
@@ -74,10 +76,18 @@ def raspar_pagina(driver, wb):
         print('clicado dnv')
         print(qtde_apps_card)
         
-        sleep(random.uniform(1, 3))
+        sleep(random.uniform(2, 3))
+
+        url_atual = driver.current_url
         
         elements_details = driver.find_elements(By.XPATH, "//i[@class='fa-tasks fas']")
-        if elements_details:
+
+        if not elements_details and url_inicial != url_atual:
+             print('Nao achei element details mas a URL mudou, voltando de pagina')
+             driver.back()
+             continue
+        if elements_details and url_inicial != url_atual:
+            print('Entrei em element details')
             for index_details, elementt in enumerate(elements_details, start=1):
                 print(f"Clicando no elemento {index_details} de {len(elements_details)}")
                 cont_element_details = len(elements_details)
@@ -126,6 +136,8 @@ def raspar_pagina(driver, wb):
                         
         else:
             print("Nenhum elemento encontrado.")
+            continue
+
     wb.save("dados_vencedores_portal_compras_publicas.xlsx")
     sleep(15)
     driver.quit()
