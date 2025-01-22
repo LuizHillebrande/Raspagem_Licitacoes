@@ -1316,8 +1316,9 @@ img_site2 = ctk.CTkImage(Image.open("compras_gov.png"), size=(300, 100))  # Subs
 label_img_site2 = ctk.CTkLabel(frame_site2, image=img_site2, text="")
 label_img_site2.pack(pady=10)
 
-label_site2 = ctk.CTkLabel(frame_site2, text="Diário de São Paulo", font=("Helvetica", 18, "bold"))
+label_site2 = ctk.CTkLabel(frame_site2, text="Compras GOV", font=("Helvetica", 18, "bold"))
 label_site2.pack(pady=10)
+#funcionando
 
 button_site2 = ctk.CTkButton(
     frame_site2, 
