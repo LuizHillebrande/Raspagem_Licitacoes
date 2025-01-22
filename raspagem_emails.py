@@ -86,7 +86,7 @@ def consulta_cnpj_gratis(label_contador, janela):
     # Usando glob para buscar arquivos que começam com 'dados_' e terminam com '.xlsx'
     arquivos = glob.glob("cnpjs_*.xlsx")
     
-    if not os.path.exists(arquivos[0]):
+    if not arquivos:
         messagebox.showwarning("Atenção", "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJ duplicados!")
         return  # Para a execução da função
 
@@ -127,8 +127,9 @@ def consulta_cnpj_gratis(label_contador, janela):
                             print(f"Erro ao encontrar o e-mail para o CNPJ: {cnpj_limpo}")
                             pass  # Se não achar o email, passa para o próximo CNPJ
 
-                        sleep(12)
                         salvar_emails(resultados)
+                        sleep(12)
+                        
 
         salvar_emails(resultados)
     finally:
@@ -138,7 +139,7 @@ def consulta_cnpj_ja(label_contador, janela):
     # Usando glob para buscar arquivos que começam com 'dados_' e terminam com '.xlsx'
     arquivos = glob.glob("cnpjs_*.xlsx")
 
-    if not os.path.exists(arquivos[0]):
+    if not arquivos:
         messagebox.showwarning("Atenção", "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJ duplicados!")
         return  # Para a execução da função
 
@@ -181,9 +182,10 @@ def consulta_cnpj_ja(label_contador, janela):
                         except Exception:
                             print(f"Erro ao encontrar o e-mail para o CNPJ: {cnpj_limpo}")
                             pass  # Se não achar o email, passa para o próximo CNPJ
-
-                        sleep(12)
+                        
                         salvar_emails(resultados)
+                        sleep(12)
+                        
 
         salvar_emails(resultados)
     finally:
