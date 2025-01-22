@@ -51,16 +51,34 @@ def criar_interface_raspagem_emails():
 
 def salvar_emails(resultados):
     """
-    Salva os resultados no arquivo 'emails_vencedores.xlsx', evitando duplicatas.
+    Salva os resultados no arquivo de e-mails, criando novos arquivos se o número de linhas exceder 2000.
     """
-    df_resultados = pd.DataFrame(resultados)
-    if not os.path.exists("emails_vencedores.xlsx"):
-        df_resultados.to_excel("emails_vencedores.xlsx", index=False)
+    # Definir o nome base do arquivo
+    nome_arquivo_base = "emails_vencedores"
+
+    # Verificar o número total de registros no arquivo existente
+    arquivos_existentes = glob.glob(f"{nome_arquivo_base}_*.xlsx")  # Busca todos os arquivos existentes com o padrão de nome
+    indice_arquivo = len(arquivos_existentes) + 1  # Define o índice do próximo arquivo a ser salvo
+
+    # Se não houver arquivos, salva no arquivo padrão
+    if not arquivos_existentes:
+        nome_arquivo = f"{nome_arquivo_base}.xlsx"
     else:
-        df_existente = pd.read_excel("emails_vencedores.xlsx")
-        df_atualizado = pd.concat([df_existente, df_resultados]).drop_duplicates(subset="Email", keep="first")
-        df_atualizado.to_excel("emails_vencedores.xlsx", index=False)
-    print("E-mails salvos no arquivo 'emails_vencedores.xlsx'.")
+        nome_arquivo = f"{nome_arquivo_base}_{indice_arquivo}.xlsx"
+
+    df_resultados = pd.DataFrame(resultados)
+
+    # Se o arquivo já existir, verifica quantas linhas já existem e onde continuar
+    if os.path.exists(nome_arquivo):
+        df_existente = pd.read_excel(nome_arquivo)
+        if len(df_existente) >= 2000:
+            indice_arquivo += 1
+            nome_arquivo = f"{nome_arquivo_base}_{indice_arquivo}.xlsx"
+    
+    # Salva os e-mails no arquivo
+    df_resultados.to_excel(nome_arquivo, index=False)
+    print(f"E-mails salvos no arquivo '{nome_arquivo}'.")
+
 
 def consulta_cnpj_gratis(label_contador, janela):
     # Usando glob para buscar arquivos que começam com 'dados_' e terminam com '.xlsx'
@@ -93,12 +111,9 @@ def consulta_cnpj_gratis(label_contador, janela):
                             email_element = driver.find_element(By.XPATH, '//p[contains(text(), "@")]')
                             email = email_element.text.strip()
 
-                            razao_social_element = driver.find_element(By.XPATH, "//div[@id='overview']//h1")
-                            razao_social = razao_social_element.text.strip()
-
                             if email not in emails_unicos:
                                 emails_unicos.add(email)
-                                resultados.append({"Razao Social": razao_social, "Email": email, "CNPJ": cnpj_limpo})
+                                resultados.append({"CNPJ": cnpj_limpo, "Email": email})
                                 total_emails += 1
                                 label_contador.configure(text=f"E-mails raspados: {total_emails}")
                                 janela.update()
@@ -147,13 +162,10 @@ def consulta_cnpj_ja(label_contador, janela):
                             )
                             email = email_element.text.strip()
 
-                            razao_social_element = driver.find_element(By.XPATH, "//div[@class='inline cursor-copy']//span")
-                            razao_social = razao_social_element.text.strip()
-
                             if email not in emails_unicos:
                                 if email != 'contato@cnpja.com':
                                     emails_unicos.add(email)
-                                    resultados.append({"Razao Social": razao_social, "Email": email, "CNPJ": cnpj_limpo})
+                                    resultados.append({"CNPJ": cnpj_limpo, "Email": email})
                                     total_emails += 1
                                     label_contador.configure(text=f"E-mails raspados: {total_emails}")
                                     janela.update()
