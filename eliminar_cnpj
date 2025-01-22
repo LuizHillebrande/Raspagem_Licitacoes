@@ -3,6 +3,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 import os
 import glob
+from datetime import datetime
 
 def carregar_cnpjs_de_arquivos(arquivos):
     cnpjs_unicos = set()  # Usando um set para garantir que não haja CNPJs duplicados
@@ -22,7 +23,17 @@ def carregar_cnpjs_de_arquivos(arquivos):
 
     return cnpjs_unicos, cnpjs_ocorrencias
 
-def salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias, nome_arquivo="cnpjs_unicos.xlsx"):
+def salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias):
+    # Obtém a data no formato brasileiro (DD-MM-AAAA)
+    data_hoje = datetime.now().strftime("%d-%m-%Y")
+    
+    # Gera um ID baseado no número de arquivos existentes com o mesmo padrão
+    arquivos_existentes = glob.glob(f"cnpjs_unicos_{data_hoje}_*.xlsx")
+    id_arquivo = len(arquivos_existentes) + 1  # Incrementa o ID
+    
+    # Nome final do arquivo com data e ID
+    nome_arquivo = f"cnpjs_unicos_{data_hoje}_{id_arquivo}.xlsx"
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append(["CNPJ", "Ocorrências"])  # Cabeçalho da planilha
