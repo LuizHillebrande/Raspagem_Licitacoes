@@ -121,9 +121,7 @@ def consulta_cnpj_gratis(label_contador, janela):
                             print(f"Erro ao encontrar o e-mail para o CNPJ: {cnpj_limpo}")
                             pass  # Se não achar o email, passa para o próximo CNPJ
 
-                        if total_emails % 5 == 0:
-                            salvar_emails(resultados)
-                            sleep(60)  # Espera de 60 segundos após salvar os e-mails
+                        sleep(12)
 
         salvar_emails(resultados)
     finally:
@@ -173,9 +171,7 @@ def consulta_cnpj_ja(label_contador, janela):
                             print(f"Erro ao encontrar o e-mail para o CNPJ: {cnpj_limpo}")
                             pass  # Se não achar o email, passa para o próximo CNPJ
 
-                        if total_emails % 5 == 0:
-                            salvar_emails(resultados)
-                            sleep(60)  # Espera de 60 segundos após salvar os e-mails
+                        sleep(12)
 
         salvar_emails(resultados)
     finally:
