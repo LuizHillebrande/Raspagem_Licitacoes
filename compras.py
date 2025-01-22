@@ -10,47 +10,46 @@ import customtkinter as ctk
 import re
 from selenium.webdriver.common.action_chains import ActionChains
 
-def verifica_ajudicacao(driver):
-                situacao_texto = ""
-                adjudicada_encontrada = False
+def verifica_ajudicacao(driver, root, label_status, cnpjs_set):
+    situacao_texto = ""
+    adjudicada_encontrada = False
+    try:
+        elementos_situacao = WebDriverWait(driver, 5).until(
+            EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div[data-test='situacao-proposta']"))
+        )
+
+        for elemento_situacao in elementos_situacao:
+            situacao_texto = elemento_situacao.text.strip()
+            if situacao_texto.lower() == "adjudicada":  # Só pega o CNPJ se a situação for "adjudicada"
+                adjudicada_encontrada = True
+                print("A proposta está adjudicada. Realizando ações subsequentes...")
+
                 try:
-                    elementos_situacao = WebDriverWait(driver, 5).until(
-                        EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div[data-test='situacao-proposta']"))
+                    container = elemento_situacao.find_element(By.XPATH, "./ancestor::div[contains(@data-test, 'propostaItemEmSelecaoFornecedores')]")
+                    container_cnpj = WebDriverWait(container, 10).until(
+                        EC.visibility_of_element_located((By.XPATH, ".//span[@data-test='identificacao-participante']"))
                     )
+                    cnpj = container_cnpj.text
+                    print('CNPJ encontrado:', cnpj)
 
-                    
+                    # Adiciona ao set para garantir que não haja duplicação
+                    cnpjs_set.add(cnpj)
 
-                    for elemento_situacao in elementos_situacao:
-                        # Obtém o texto do elemento
-                        situacao_texto = elemento_situacao.text.strip()
+                    # Salva os CNPJs no Excel e atualiza o status
+                    total_cnpjs = salvar_cnpjs_excel(cnpjs_set)
+                    label_status.configure(text=f"Total de CNPJs encontrados: {total_cnpjs}")
+                    root.update()
 
-                        # Verifica se o texto é "Adjudicada"
-                        if situacao_texto.lower() == "adjudicada":
-                            adjudicada_encontrada = True
-                            print("A proposta está adjudicada. Realizando ações subsequentes...")
-
-                            # Agora, encontra o contêiner de proposta
-                            try:
-                                container = elemento_situacao.find_element(By.XPATH, "./ancestor::div[contains(@data-test, 'propostaItemEmSelecaoFornecedores')]")
-                                # Espera até que o botão de expansão esteja visível e clicável
-                                container_cnpj = WebDriverWait(container, 10).until(
-                                    EC.visibility_of_element_located((By.XPATH, ".//span[@data-test='identificacao-participante']"))
-                                )
-                                cnpj = container_cnpj.text
-                                print('cnpj encontrado:',cnpj)
-                            except Exception as e:
-                                print(f"Erro ao encontrar o botão de expansão: {e}")
-                                continue 
                 except Exception as e:
-                    print(f"Erro ao buscar elementos de situação: {e}")
-                    return situacao_texto, False  # Caso não encontrar a situação
+                    print(f"Erro ao encontrar o botão de expansão: {e}")
+                    continue
+    except Exception as e:
+        print(f"Erro ao buscar elementos de situação: {e}")
+        return situacao_texto, False  # Caso não encontrar a situação
 
-                       
+    return situacao_texto, adjudicada_encontrada
 
-                return situacao_texto, adjudicada_encontrada
-
-
-def raspar_pagina(driver, wb):
+def raspar_pagina(driver, wb, root, label_status, cnpjs_set):
      # Coleta os links únicos
     elements = driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']")
     qtde_apps_card = len(driver.find_elements(By.XPATH, "//i[@class='fa fa-tasks']"))
@@ -105,7 +104,7 @@ def raspar_pagina(driver, wb):
                 print(f'Elemento {index} clicado com sucesso.')
                 sleep(3)
                 
-                situacao_texto, adjudicada_encontrada = verifica_ajudicacao(driver)
+                situacao_texto, adjudicada_encontrada = verifica_ajudicacao(driver, root, label_status, cnpjs_set)
                 
                 if not adjudicada_encontrada:
                         print('Nenhuma proposta adjudicada')
@@ -130,7 +129,7 @@ def raspar_pagina(driver, wb):
                     print(f'Elemento atual: {index}, último elemento: {(qtde_apps_card) - 1}')
                     next_page.click()
                     sleep(3)
-                    raspar_pagina(driver, wb)
+                    raspar_pagina(driver, wb, root, label_status, cnpjs_set)
                 else:
                     break
                     
@@ -144,7 +143,7 @@ def raspar_pagina(driver, wb):
     driver.quit()
     messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
 
-def iniciar_raspagem_compras_gov(ano):
+def iniciar_raspagem_compras_gov(ano, root, label_status, cnpjs):
     # Inicializa o navegador com undetected_chromedriver
     driver = uc.Chrome()
     driver.get('https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/compras')
@@ -177,30 +176,67 @@ def iniciar_raspagem_compras_gov(ano):
     button_pesquisar.click()
     sleep(random.uniform(1, 3))  # Delay aleatório
 
-    raspar_pagina(driver, wb)
+    raspar_pagina(driver, wb, root, label_status, cnpjs)
 
     wb.save("dados_vencedores_portal_compras_publicas.xlsx")
     sleep(5)
     driver.quit()
     messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")    
 
-def iniciar():
-    ano = entry_ano.get()  # Obtém o valor digitado na interface
-    if ano:
-        iniciar_raspagem_compras_gov(ano)  # Passa o ano para a função de raspagem
-    else:
-        messagebox.showwarning("Erro", "Por favor, insira um ano.")
 
-root = ctk.CTk()
-root.title("Raspagem Compras Gov")
+def salvar_cnpjs_excel(cnpjs_set):
+    # Carregar o arquivo Excel existente ou criar um novo
+    try:
+        wb = openpyxl.load_workbook("dados_compras_gov.xlsx")
+        ws = wb.active
+    except FileNotFoundError:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "CNPJs Extraídos"
+        ws.append(["CNPJ"])  # Cabeçalho do arquivo Excel
 
-# Campo de entrada para o ano
-entry_ano = ctk.CTkEntry(root, placeholder_text="Digite o ano (Ex: 102021)")
-entry_ano.pack(pady=10)
+    # Adiciona os CNPJs do set (sem duplicados)
+    for cnpj in cnpjs_set:
+        # Verifica se o CNPJ já está na planilha antes de adicionar
+        cell_values = [cell.value for cell in ws['A']]  # Lista de valores existentes na coluna A
+        if cnpj not in cell_values:
+            ws.append([cnpj])  # Adiciona o CNPJ apenas se não estiver na planilha
 
-# Botão para iniciar o processo
-button_iniciar = ctk.CTkButton(root, text="Iniciar Raspagem", command=iniciar)
-button_iniciar.pack(pady=10)
+    from datetime import datetime
+    # Salva o arquivo
+    data_atual = datetime.now().strftime("%d-%m-%Y")
+    nome_arquivo = f"dados_compras_gov_{data_atual}.xlsx"
+    wb.save(nome_arquivo)
+    print(f"Total de CNPJs únicos salvos no arquivo Excel: {len(cnpjs_set)}")
 
-# Rodar a interface
-root.mainloop()
+    return len(cnpjs_set)  # Retorna a quantidade de CNPJs únicos adicionados
+
+def criar_interface_compras_gov():
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+
+    root = ctk.CTk()
+    root.geometry("400x300")
+    root.title("Raspagem Compras Gov")
+
+    ctk.CTkLabel(root, text="Digite o ano (Ex: 2023):").pack(pady=10)
+    entry_ano = ctk.CTkEntry(root, placeholder_text="Digite o ano")
+    entry_ano.pack(pady=10)
+
+    label_status = ctk.CTkLabel(root, text="Status: Aguardando ação...", font=("Arial", 14))
+    label_status.pack(pady=10)
+
+    cnpjs_set = set()  # Inicializa o set de CNPJs aqui
+
+    def iniciar():
+        ano = entry_ano.get()
+        if ano:
+            iniciar_raspagem_compras_gov(ano, root, label_status, cnpjs_set)
+        else:
+            messagebox.showwarning("Erro", "Por favor, insira um ano.")
+
+    ctk.CTkButton(root, text="Iniciar Raspagem", command=iniciar).pack(pady=10)
+    root.mainloop()
+
+
+criar_interface_compras_gov()
