@@ -38,6 +38,7 @@ def verifica_ajudicacao(driver, root, label_status, cnpjs_set):
                     # Salva os CNPJs no Excel e atualiza o status
                     total_cnpjs = salvar_cnpjs_excel(cnpjs_set)
                     label_status.configure(text=f"Total de CNPJs encontrados: {total_cnpjs}")
+                    print(f"Total de CNPJs encontrados: {total_cnpjs}")
                     root.update()
 
                 except Exception as e:
@@ -193,14 +194,14 @@ def salvar_cnpjs_excel(cnpjs_set):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "CNPJs Extraídos"
-        ws.append(["CNPJ"])  # Cabeçalho do arquivo Excel
+        ws.append([None, "CNPJ"])  # Cabeçalho do arquivo Excel
 
     # Adiciona os CNPJs do set (sem duplicados)
     for cnpj in cnpjs_set:
         # Verifica se o CNPJ já está na planilha antes de adicionar
-        cell_values = [cell.value for cell in ws['A']]  # Lista de valores existentes na coluna A
+        cell_values = [cell.value for cell in ws['B']]  # Lista de valores existentes na coluna B
         if cnpj not in cell_values:
-            ws.append([cnpj])  # Adiciona o CNPJ apenas se não estiver na planilha
+            ws.append([None, cnpj])  # Adiciona o CNPJ apenas se não estiver na planilha
 
     from datetime import datetime
     # Salva o arquivo

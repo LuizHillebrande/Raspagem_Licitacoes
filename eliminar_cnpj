@@ -1,10 +1,12 @@
 import openpyxl
 import customtkinter as ctk
 from tkinter import messagebox
+from tkinter.filedialog import askopenfilenames  # Para abrir a caixa de seleção de arquivos
 import os
 import glob
 from datetime import datetime
 
+# Função para carregar os CNPJs de arquivos
 def carregar_cnpjs_de_arquivos(arquivos):
     cnpjs_unicos = set()  # Usando um set para garantir que não haja CNPJs duplicados
     cnpjs_ocorrencias = []  # Lista para armazenar todas as ocorrências de CNPJs (mesmo duplicados)
@@ -23,21 +25,24 @@ def carregar_cnpjs_de_arquivos(arquivos):
 
     return cnpjs_unicos, cnpjs_ocorrencias
 
+# Função para salvar os CNPJs e suas ocorrências em um arquivo único
 def salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias):
     # Obtém a data no formato brasileiro (DD-MM-AAAA)
     data_hoje = datetime.now().strftime("%d-%m-%Y")
     
-    # Gera um ID baseado no número de arquivos existentes com o mesmo padrão
-    arquivos_existentes = glob.glob(f"cnpjs_unicos_{data_hoje}_*.xlsx")
-    id_arquivo = len(arquivos_existentes) + 1  # Incrementa o ID
-    
-    # Nome final do arquivo com data e ID
-    nome_arquivo = f"cnpjs_unicos_{data_hoje}_{id_arquivo}.xlsx"
+    # Nome do arquivo onde os CNPJs serão salvos
+    nome_arquivo = f"cnpjs_unicos_{data_hoje}.xlsx"
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.append(["CNPJ", "Ocorrências"])  # Cabeçalho da planilha
+    # Criar ou carregar o arquivo Excel onde os dados serão armazenados
+    if os.path.exists(nome_arquivo):
+        wb = openpyxl.load_workbook(nome_arquivo)
+        ws = wb.active
+    else:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["CNPJ", "Ocorrências"])  # Cabeçalho da planilha
 
+    # Adiciona os CNPJs e suas ocorrências na planilha
     for cnpj in cnpjs_unicos:
         ocorrencias = cnpjs_ocorrencias.count(cnpj)  # Conta quantas vezes o CNPJ aparece
         ws.append([cnpj, ocorrencias])  # Adiciona o CNPJ e o número de ocorrências
@@ -45,21 +50,39 @@ def salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias):
     wb.save(nome_arquivo)
     print(f"CNPJs únicos e suas ocorrências salvos em: {nome_arquivo}")
 
+# Função para iniciar o processo de eliminação de CNPJs duplicados
 def eliminar_cnpjs():
-    # Lista de arquivos que devem ser processados
-    arquivos = glob.glob("dados_*.xlsx")
-
-    # Verifica se os arquivos existem
-    arquivos_existentes = [arquivo for arquivo in arquivos if os.path.exists(arquivo)]
-
-    if not arquivos_existentes:
-        # Exibe mensagem de aviso e retorna
-        messagebox.showwarning("Atenção", "Nenhum arquivo de dados foi encontrado para eliminar CNPJs duplicados.")
+    # Abre uma caixa de diálogo para o usuário selecionar os arquivos
+    arquivos = askopenfilenames(
+        title="Selecione os arquivos de dados", 
+        filetypes=[("Arquivos Excel", "*.xlsx")], 
+        initialdir=os.getcwd()  # Inicia na pasta atual
+    )
+    
+    # Verifica se o usuário selecionou algum arquivo
+    if not arquivos:
+        messagebox.showwarning("Atenção", "Nenhum arquivo foi selecionado.")
         return
 
-    cnpjs_unicos, cnpjs_ocorrencias = carregar_cnpjs_de_arquivos(arquivos_existentes)
+    # Carregar CNPJs e ocorrências de todos os arquivos selecionados
+    cnpjs_unicos, cnpjs_ocorrencias = carregar_cnpjs_de_arquivos(arquivos)
 
+    # Salvar todos os CNPJs na mesma planilha
     salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias)
     messagebox.showinfo("Concluído", "CNPJs duplicados eliminados com sucesso!")
 
-eliminar_cnpjs()
+# Função para criar a interface gráfica com Tkinter
+def criar_interface():
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+
+    root = ctk.CTk()
+    root.geometry("400x300")
+    root.title("Eliminação de CNPJs Duplicados")
+
+    ctk.CTkButton(root, text="Selecionar e Processar Arquivos", command=eliminar_cnpjs).pack(pady=10)
+
+    root.mainloop()
+
+# Criar a interface gráfica
+criar_interface()
