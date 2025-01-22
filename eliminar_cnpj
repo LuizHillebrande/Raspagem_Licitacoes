@@ -2,6 +2,7 @@ import openpyxl
 import customtkinter as ctk
 from tkinter import messagebox
 import os
+import glob
 
 def carregar_cnpjs_de_arquivos(arquivos):
     cnpjs_unicos = set()  # Usando um set para garantir que não haja CNPJs duplicados
@@ -35,7 +36,7 @@ def salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias, nome_arquivo="cnpjs_uni
 
 def eliminar_cnpjs():
     # Lista de arquivos que devem ser processados
-    arquivos = ["dados_fornecedores.xlsx", "dados_fornecedores_2.xlsx"]
+    arquivos = glob.glob("dados_*.xlsx")
 
     # Verifica se os arquivos existem
     arquivos_existentes = [arquivo for arquivo in arquivos if os.path.exists(arquivo)]

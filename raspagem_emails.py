@@ -9,6 +9,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from time import sleep
 import customtkinter as ctk
 import glob  # Para buscar arquivos com padrão
+from tkinter import messagebox
+
 
 def criar_interface_raspagem_emails():
     janela = ctk.CTk()  # Janela principal
@@ -82,7 +84,11 @@ def salvar_emails(resultados):
 
 def consulta_cnpj_gratis(label_contador, janela):
     # Usando glob para buscar arquivos que começam com 'dados_' e terminam com '.xlsx'
-    arquivos = glob.glob("dados_*.xlsx")
+    arquivos = ['cnpjs_unicos.xlsx']
+
+    if not os.path.exists(arquivos[0]):
+        messagebox.showwarning("Atenção", "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJ duplicados!")
+        return  # Para a execução da função
 
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
@@ -100,7 +106,7 @@ def consulta_cnpj_gratis(label_contador, janela):
             if os.path.exists(arquivo):
                 df = pd.read_excel(arquivo)
 
-                for cnpj in df.iloc[:, 1]:  # Segunda coluna
+                for cnpj in df.iloc[:, 0]:  # Segunda coluna
                     cnpj_limpo = limpar_cnpj(cnpj)
                     if cnpj_limpo:
                         link = f"https://consulta.guru/consultar-cnpj-gratis/{cnpj_limpo}"
@@ -129,7 +135,11 @@ def consulta_cnpj_gratis(label_contador, janela):
 
 def consulta_cnpj_ja(label_contador, janela):
     # Usando glob para buscar arquivos que começam com 'dados_' e terminam com '.xlsx'
-    arquivos = glob.glob("dados_*.xlsx")
+    arquivos = ['cnpjs_unicos.xlsx']
+
+    if not os.path.exists(arquivos[0]):
+        messagebox.showwarning("Atenção", "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJ duplicados!")
+        return  # Para a execução da função
 
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
@@ -147,7 +157,7 @@ def consulta_cnpj_ja(label_contador, janela):
             if os.path.exists(arquivo):
                 df = pd.read_excel(arquivo)
 
-                for cnpj in df.iloc[:, 1]:
+                for cnpj in df.iloc[:, 0]:
                     cnpj_limpo = limpar_cnpj(cnpj)
                     if cnpj_limpo:
                         link = f"https://cnpja.com/office/{cnpj_limpo}"
