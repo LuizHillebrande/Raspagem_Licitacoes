@@ -44,6 +44,7 @@ def scroll_ate_resultados_estabilizarem(driver):
     resultado_atual = int(resultado_atual.split(":")[-1].strip())
 
     while True:
+        time.sleep(1)
         # Rolar para baixo
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(4)  # Aguarda o carregamento dos novos resultados
@@ -329,23 +330,33 @@ def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
     else:
         label_erro.configure(text="Nenhum CNPJ encontrado nos arquivos PDFs.", text_color="red")
 
+from datetime import datetime
 
 # Função para ser chamada quando o botão "Extrair CNPJ" for clicado
+import os
+from datetime import datetime
+
 def extrair_cnpjs(label_erro, tipo):
+    # Data atual no formato brasileiro (DD-MM-YYYY)
+    data_atual = datetime.now().strftime("%d-%m-%Y")
+
+    # Definindo o diretório e o nome do arquivo dependendo do tipo
     if tipo == 'homologados':
         pasta_vencedores = os.path.join(os.getcwd(), "vencedores_bll_compras_homologado")
-        nome_arquivo_saida = "dados_vencedores_homologados_bll_compras.xlsx"
+        nome_arquivo_saida = f"dados_vencedores_homologados_bll_compras_{data_atual}.xlsx"
     elif tipo == 'adjudicados':
         pasta_vencedores = os.path.join(os.getcwd(), "vencedores_bll_compras_adjudicado")
-        nome_arquivo_saida = "dados_vencedores_adjudicados_bll_compras.xlsx"
+        nome_arquivo_saida = f"dados_vencedores_adjudicados_bll_compras_{data_atual}.xlsx"
     else:
         label_erro.configure(text="Tipo inválido.", text_color="red")
         return
 
+    # Verificando se a pasta existe e chamando a função para extrair os CNPJs
     if os.path.exists(pasta_vencedores):
         extrair_cnpjs_pasta(pasta_vencedores, nome_arquivo_saida, label_erro)
     else:
         label_erro.configure(text="Pasta de vencedores não encontrada!", text_color="red")
+
 
 def criar_interface():
     def iniciar_busca():

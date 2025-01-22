@@ -93,9 +93,12 @@ def consulta_cnpj_gratis(label_contador, janela):
                             email_element = driver.find_element(By.XPATH, '//p[contains(text(), "@")]')
                             email = email_element.text.strip()
 
+                            razao_social_element = driver.find_element(By.XPATH, "//div[@id='overview']//h1")
+                            razao_social = razao_social_element.text.strip()
+
                             if email not in emails_unicos:
                                 emails_unicos.add(email)
-                                resultados.append({"CNPJ": cnpj_limpo, "Email": email})
+                                resultados.append({"Razao Social": razao_social, "Email": email, "CNPJ": cnpj_limpo})
                                 total_emails += 1
                                 label_contador.configure(text=f"E-mails raspados: {total_emails}")
                                 janela.update()
@@ -144,10 +147,13 @@ def consulta_cnpj_ja(label_contador, janela):
                             )
                             email = email_element.text.strip()
 
+                            razao_social_element = driver.find_element(By.XPATH, "//div[@class='inline cursor-copy']//span")
+                            razao_social = razao_social_element.text.strip()
+
                             if email not in emails_unicos:
                                 if email != 'contato@cnpja.com':
                                     emails_unicos.add(email)
-                                    resultados.append({"CNPJ": cnpj_limpo, "Email": email})
+                                    resultados.append({"Razao Social": razao_social, "Email": email, "CNPJ": cnpj_limpo})
                                     total_emails += 1
                                     label_contador.configure(text=f"E-mails raspados: {total_emails}")
                                     janela.update()

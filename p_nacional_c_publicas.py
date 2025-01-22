@@ -85,6 +85,9 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
     global cnpj_count
     driver = webdriver.Chrome()
 
+    data_atual = datetime.now().strftime("%d-%m-%Y")
+    nome_arquivo = f"dados_fornecedores_{data_atual}.xlsx"  # Nome com data no final
+
     # Criar a planilha para salvar os dados
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -150,7 +153,7 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
                     
                     # Salvar os dados na planilha
                     ws.append([link, cnpj, razao_social, data_divulgacao, data_texto])
-                    wb.save("dados_fornecedores.xlsx")
+                    wb.save(nome_arquivo)
 
                 except Exception as e:
                     print(f"Erro ao processar o botão {i}: {e}")
