@@ -50,6 +50,16 @@ def salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias):
     wb.save(nome_arquivo)
     print(f"CNPJs únicos e suas ocorrências salvos em: {nome_arquivo}")
 
+# Função para renomear os arquivos para indicar que foram processados
+def renomear_arquivo_processado(arquivos):
+    data_hoje = datetime.now().strftime("%d-%m-%Y")
+
+    for arquivo in arquivos:
+        # Renomeia o arquivo original para algo como: cnpjs_processados_{data}.xlsx
+        novo_nome = f"cnpjs_processados_{data_hoje}_{os.path.basename(arquivo)}"
+        os.rename(arquivo, novo_nome)
+        print(f"Arquivo renomeado para: {novo_nome}")
+
 # Função para iniciar o processo de eliminação de CNPJs duplicados
 def eliminar_cnpjs():
     # Abre uma caixa de diálogo para o usuário selecionar os arquivos
@@ -69,10 +79,14 @@ def eliminar_cnpjs():
 
     # Salvar todos os CNPJs na mesma planilha
     salvar_cnpjs_unicos(cnpjs_unicos, cnpjs_ocorrencias)
+
+    # Renomeia os arquivos processados
+    renomear_arquivo_processado(arquivos)
+
     messagebox.showinfo("Concluído", "CNPJs duplicados eliminados com sucesso!")
 
 # Função para criar a interface gráfica com Tkinter
-def criar_interface():
+def criar_interface_eliminar_cnpj():
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
@@ -85,4 +99,4 @@ def criar_interface():
     root.mainloop()
 
 # Criar a interface gráfica
-criar_interface()
+criar_interface_eliminar_cnpj()
