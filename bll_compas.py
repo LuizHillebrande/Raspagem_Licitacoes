@@ -38,11 +38,11 @@ def limpa_campo():
     for _ in range(10):
         pyautogui.press('backspace')
 
-def scroll_ate_resultados_estabilizarem(driver, label):
+def scroll_ate_resultados_estabilizarem(driver):
     # Obter o número inicial de resultados
     resultado_atual = driver.find_element(By.ID, "footResultCount").text
     resultado_atual = int(resultado_atual.split(":")[-1].strip())
-    label.configure(text=f"Resultados encontrados: {resultado_atual}")
+
     while True:
         # Rolar para baixo
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -51,8 +51,7 @@ def scroll_ate_resultados_estabilizarem(driver, label):
         # Obter o novo número de resultados
         novo_resultado = driver.find_element(By.ID, "footResultCount").text
         novo_resultado = int(novo_resultado.split(":")[-1].strip())
-        label.configure(text=f"Resultados encontrados: {novo_resultado}")
-        root.update()
+
         # Verificar se o número de resultados mudou
         if novo_resultado == resultado_atual:
             print(f"Número de resultados estabilizado: {novo_resultado}")
@@ -60,7 +59,7 @@ def scroll_ate_resultados_estabilizarem(driver, label):
         else:
             resultado_atual = novo_resultado  # Atualiza o número de resultados
 
-def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs, label):
+def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs):
 
     progresso_json = "progresso.json"
 
@@ -130,7 +129,7 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     )
     icon.click()
 
-    scroll_ate_resultados_estabilizarem(driver, label)
+    scroll_ate_resultados_estabilizarem(driver)
 
     # Espera até que a lista de elementos de informações esteja carregada
     WebDriverWait(driver, 10).until(
@@ -416,10 +415,6 @@ def criar_interface():
 
     label_contador_cnpjs = ctk.CTkLabel(root, text="CNPJs Extraídos: 0")
     label_contador_cnpjs.pack()
-
-    global label_contador_resultados
-    label_contador_resultados = ctk.CTkLabel(root, text="Resultados encontrados: 0")
-    label_contador_resultados.pack()
 
     # Label de erro ou sucesso
     label_erro = ctk.CTkLabel(root, text="")

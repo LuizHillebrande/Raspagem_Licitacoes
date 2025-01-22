@@ -29,6 +29,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 from openpyxl import load_workbook
 from tkinter import filedialog
+import cv2
+import numpy as np
 
 def converter_para_csv(pasta):
     # Verifica se a pasta existe
@@ -111,7 +113,7 @@ def enviar_emails():
         EC.element_to_be_clickable((By.XPATH,"//input[@id='lead_import_batchlimit']"))
     )
     limite.clear()
-    limite.send_keys('25000')
+    limite.send_keys('2000')
     sleep(2)
 
     import_csv = WebDriverWait(driver,5).until(
@@ -144,7 +146,7 @@ def enviar_emails():
 
     
     option_segmento = WebDriverWait(driver, 5).until(
-        EC.presence_of_element_located((By.XPATH, "//li[contains(text(), 'Teste_mautic')]"))  # Ajuste o texto conforme necessário
+        EC.presence_of_element_located((By.XPATH, "//li[contains(text(), 'Teste Mautic 2')]"))  # Ajuste o texto conforme necessário
     )
     option_segmento.click()
 
@@ -175,50 +177,47 @@ def enviar_emails():
     pyautogui.press('enter')
     sleep(2)
 
-    importacao_plano_fundo  = WebDriverWait(driver,5).until(
-        EC.element_to_be_clickable((By.XPATH,"//button[@id='lead_field_import_buttons_apply_toolbar']"))
+    #importacao_plano_fundo  = WebDriverWait(driver,5).until(
+        #EC.element_to_be_clickable((By.XPATH,"//button[@id='lead_field_import_buttons_apply_toolbar']"))
+    #)
+    #importacao_plano_fundo.click()
+
+    importacao_navegador = WebDriverWait(driver,5).until(
+        EC.element_to_be_clickable((By.XPATH,"//button[@id='lead_field_import_buttons_save_toolbar']"))
     )
-    importacao_plano_fundo.click()
+    importacao_navegador.click()
+    sleep(2)
 
     nome_arquivo = os.path.basename(caminho_arquivo_selecionado)
 
-    link_arquivo = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, f"//a[contains(@href, 'view/') and contains(text(), '{nome_arquivo}')]"))
-    )
+    #link_arquivo = WebDriverWait(driver, 10).until(
+        #EC.presence_of_element_located((By.XPATH, f"//a[contains(@href, 'view/') and contains(text(), '{nome_arquivo}')]"))
+    #)
 
     # Agora, monitoramos o progresso
-    monitorar_progresso(driver, nome_arquivo)
+    monitorar_elemento(xpath, url, driver)
 
     
     sleep(15)
     driver.quit()
 
-def monitorar_progresso(driver, nome_arquivo):
+def monitorar_elemento(xpath, url, driver):
     while True:
         try:
-            # Encontrar o elemento de progresso com base no nome do arquivo
-            td_progresso = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, f"//a[contains(@href, 'view/') and contains(text(), '{nome_arquivo}')]/following::td[1]"))
-            )
-
-            # Verificar o valor do progresso
-            progresso_texto = td_progresso.text
-            print(f"Progresso: {progresso_texto}")  # Imprimir a porcentagem atual
-
-            # Se o progresso for 100%, sai do loop
-            if progresso_texto == "100%":
-                print("Progresso chegou a 100%!")
+            # Procura pelo elemento usando o XPath
+            elemento = driver.find_element(By.XPATH, xpath)
+            if elemento.is_displayed():
+                print("Elemento encontrado! Texto:", elemento.text)
                 break
+        except NoSuchElementException:
+            print("Elemento não encontrado, tentando novamente em 30 segundos...")
 
-            # Espera 2 segundos antes de verificar novamente
-            sleep(2)
+        # Aguarda 30 segundos antes de tentar novamente
+        time.sleep(30)
 
-        except Exception as e:
-            print(f"Erro ao monitorar o progresso: {e}")
-            break
-
-
-caminho_arquivo_selecionado = ""
+# Configurações
+url = "URL_DA_SUA_PAGINA"  # Substitua pela URL da página a ser monitorada
+xpath = '//div[@class="panel-heading"]//h4[contains(text(), "Sucesso!")]'
 
 def abrir_pasta_emails():
     # Abre o explorador de arquivos na pasta "emails"
