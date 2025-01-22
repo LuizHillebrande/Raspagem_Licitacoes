@@ -8,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from time import sleep
 import customtkinter as ctk
+import glob  # Para buscar arquivos com padrão
 
 def criar_interface_raspagem_emails():
     janela = ctk.CTk()  # Janela principal
@@ -62,13 +63,8 @@ def salvar_emails(resultados):
     print("E-mails salvos no arquivo 'emails_vencedores.xlsx'.")
 
 def consulta_cnpj_gratis(label_contador, janela):
-    arquivos = [
-        "dados_fornecedores.xlsx",
-        "dados_vencedores_diario_sp.xlsx",
-        "dados_vencedores_adjudicados_bll_compras.xlsx",
-        "dados_vencedores_homologados_bll_compras.xlsx",
-        "dados_fornecedores_5.xlsx"
-    ]
+    # Usando glob para buscar arquivos que começam com 'dados_' e terminam com '.xlsx'
+    arquivos = glob.glob("dados_*.xlsx")
 
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
@@ -116,13 +112,8 @@ def consulta_cnpj_gratis(label_contador, janela):
         driver.quit()
 
 def consulta_cnpj_ja(label_contador, janela):
-    arquivos = [
-        "dados_fornecedores.xlsx",
-        "dados_vencedores_diario_sp.xlsx",
-        "dados_vencedores_adjudicados_bll_compras.xlsx",
-        "dados_vencedores_homologados_bll_compras.xlsx",
-        "dados_fornecedores_5.xlsx"
-    ]
+    # Usando glob para buscar arquivos que começam com 'dados_' e terminam com '.xlsx'
+    arquivos = glob.glob("dados_*.xlsx")
 
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
