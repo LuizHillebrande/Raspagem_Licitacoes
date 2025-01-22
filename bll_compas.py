@@ -434,6 +434,4 @@ def criar_interface():
     # Inicia a interface
     root.mainloop()
 
-# Executa a interface
-if __name__ == "__main__":
-    criar_interface()
+criar_interface()
