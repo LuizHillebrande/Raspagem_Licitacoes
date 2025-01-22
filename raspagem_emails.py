@@ -91,7 +91,7 @@ def consulta_cnpj_gratis(label_contador, janela):
                     if cnpj_limpo:
                         link = f"https://consulta.guru/consultar-cnpj-gratis/{cnpj_limpo}"
                         driver.get(link)
-                        sleep(4)
+                        sleep(5)  # Aumentar o tempo de espera para garantir que a página carregue completamente
 
                         try:
                             email_element = driver.find_element(By.XPATH, '//p[contains(text(), "@")]')
@@ -104,11 +104,12 @@ def consulta_cnpj_gratis(label_contador, janela):
                                 label_contador.configure(text=f"E-mails raspados: {total_emails}")
                                 janela.update()
                         except Exception:
+                            print(f"Erro ao encontrar o e-mail para o CNPJ: {cnpj_limpo}")
                             pass  # Se não achar o email, passa para o próximo CNPJ
 
                         if total_emails % 5 == 0:
                             salvar_emails(resultados)
-                            janela.after(60000, salvar_emails, resultados)  # 60 segundos após salvar
+                            sleep(60)  # Espera de 60 segundos após salvar os e-mails
 
         salvar_emails(resultados)
     finally:
@@ -144,7 +145,7 @@ def consulta_cnpj_ja(label_contador, janela):
                     if cnpj_limpo:
                         link = f"https://cnpja.com/office/{cnpj_limpo}"
                         driver.get(link)
-                        sleep(2)
+                        sleep(3)  # Aumentando o tempo de espera
 
                         try:
                             email_element = WebDriverWait(driver, 10).until(
@@ -153,17 +154,19 @@ def consulta_cnpj_ja(label_contador, janela):
                             email = email_element.text.strip()
 
                             if email not in emails_unicos:
-                                emails_unicos.add(email)
-                                resultados.append({"CNPJ": cnpj_limpo, "Email": email})
-                                total_emails += 1
-                                label_contador.configure(text=f"E-mails raspados: {total_emails}")
-                                janela.update()
+                                if email != 'contato@cnpja.com':
+                                    emails_unicos.add(email)
+                                    resultados.append({"CNPJ": cnpj_limpo, "Email": email})
+                                    total_emails += 1
+                                    label_contador.configure(text=f"E-mails raspados: {total_emails}")
+                                    janela.update()
                         except Exception:
+                            print(f"Erro ao encontrar o e-mail para o CNPJ: {cnpj_limpo}")
                             pass  # Se não achar o email, passa para o próximo CNPJ
 
                         if total_emails % 5 == 0:
                             salvar_emails(resultados)
-                            janela.after(60000, salvar_emails, resultados)  # 60 segundos após salvar
+                            sleep(60)  # Espera de 60 segundos após salvar os e-mails
 
         salvar_emails(resultados)
     finally:
