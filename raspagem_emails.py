@@ -75,7 +75,7 @@ def salvar_emails(resultados):
     print(f"E-mails salvos no arquivo '{nome_arquivo}'.")
 
 def consulta_cnpj_gratis(label_contador, janela):
-    arquivos = glob.glob("cnpjs_*.xlsx")
+    arquivos = glob.glob("cnpjs_unicos*.xlsx")
     
     if not arquivos:
         messagebox.showwarning("Atenção", "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJ duplicados!")
@@ -114,7 +114,7 @@ def consulta_cnpj_gratis(label_contador, janela):
 
                             if email not in emails_unicos:
                                 emails_unicos.add(email)
-                                resultados.append({"CNPJ": cnpj_limpo, "Email": email, "Razao Social": razao_social})
+                                resultados.append({"Razao Social": razao_social, "Email": email, "CNPJ": cnpj_limpo})
                                 total_emails += 1
                                 label_contador.configure(text=f"E-mails raspados: {total_emails}")
                                 janela.update()
@@ -130,7 +130,7 @@ def consulta_cnpj_gratis(label_contador, janela):
         driver.quit()
 
 def consulta_cnpj_ja(label_contador, janela):
-    arquivos = glob.glob("cnpjs_*.xlsx")
+    arquivos = glob.glob("cnpjs_unicos*.xlsx")
 
     if not arquivos:
         messagebox.showwarning("Atenção", "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJ duplicados!")
@@ -172,7 +172,7 @@ def consulta_cnpj_ja(label_contador, janela):
                             if email not in emails_unicos:
                                 if email != 'contato@cnpja.com':
                                     emails_unicos.add(email)
-                                    resultados.append({"CNPJ": cnpj_limpo, "Email": email, "Razao Social": razao_social})
+                                    resultados.append({"Razao Social": razao_social, "Email": email, "CNPJ": cnpj_limpo})
                                     total_emails += 1
                                     label_contador.configure(text=f"E-mails raspados: {total_emails}")
                                     janela.update()
