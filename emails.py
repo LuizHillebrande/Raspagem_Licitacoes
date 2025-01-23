@@ -32,6 +32,11 @@ from tkinter import filedialog
 import cv2
 import numpy as np
 
+caminho_arquivo_selecionado = ""
+
+# Declaração global de entry_arquivo
+entry_arquivo = None
+
 def converter_para_csv(arquivo_excel):
     try:
         # Carrega o arquivo Excel
@@ -212,28 +217,10 @@ def monitorar_elemento(xpath, url, driver):
             if elemento.is_displayed():
                 print("Elemento encontrado! Texto:", elemento.text)
                 sleep(5)
-                driver.quit()
-                sleep(3)
                 driver.get('https://marilirequiaseguros.com.br/mautic/s/login')
                 driver.maximize_window()
 
-
-                login = 'luiz.logika@gmail.com'
-                password = 'Dev123@'
-                logar = WebDriverWait(driver,5).until(
-                    EC.element_to_be_clickable((By.XPATH,"//input[@id='username']"))
-                )
-                logar.send_keys(login)
-
-                password_enter = WebDriverWait(driver,5).until(
-                    EC.element_to_be_clickable((By.XPATH,"//input[@type='password']"))
-                )
-                password_enter.send_keys(password)
-
-                enter = WebDriverWait(driver,5).until(
-                    EC.element_to_be_clickable((By.XPATH,"//button[@class='btn btn-lg btn-primary btn-block']"))
-                )
-                enter.click()
+                sleep(2)
                 canais_dropdown = WebDriverWait(driver,5).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, "a#mautic_channels_root .arrow.pull-right.text-right"))
                 )
@@ -246,15 +233,17 @@ def monitorar_elemento(xpath, url, driver):
                 emails.click()
                 sleep(5)
 
-                tr_element = driver.find_element(By.XPATH, "//td[text()='38']/ancestor::tr")
+                tr_element = driver.find_element(By.XPATH, "//td[text()='39']/ancestor::tr")
                 button = tr_element.find_element(By.CSS_SELECTOR, "button.dropdown-toggle")  # Encontra o botão dentro do tr
                 WebDriverWait(driver, 10).until(EC.element_to_be_clickable(button)).click()
                 sleep(2)
 
-                link_enviar = driver.find_element(By.XPATH, "//td[text()='39']/ancestor::tr//a[@href='/mautic/s/emails/send/39']")
+                #link_enviar = driver.find_element(By.XPATH, "//td[text()='38']/ancestor::tr//a[@href='/mautic/s/emails/send/38']")
 
                 # Garantir que o link seja clicável e clicar nele
-                WebDriverWait(driver, 10).until(EC.element_to_be_clickable(link_enviar)).click()
+                #WebDriverWait(driver, 10).until(EC.element_to_be_clickable(link_enviar)).click()
+                pyautogui.click(337,497,duration=1)
+                sleep(3)
                 monitorar_elemento_envio_emails(xpath, url, driver)
                 break
         except NoSuchElementException:
@@ -270,6 +259,8 @@ def monitorar_elemento_envio_emails(xpath, url, driver):
             elemento = driver.find_element(By.XPATH, xpath)
             if elemento.is_displayed():
                 print("Elemento encontrado! Texto:", elemento.text)
+                messagebox.showinfo('Sucesso!', 'E-mails enviados!')
+                driver.quit
                 break
         except NoSuchElementException:
             print("Elemento não encontrado, tentando novamente em 30 segundos...")
@@ -282,6 +273,8 @@ url = "URL_DA_SUA_PAGINA"  # Substitua pela URL da página a ser monitorada
 xpath = '//div[@class="panel-heading"]//h4[contains(text(), "Sucesso!")]'
 
 def abrir_pasta_emails():
+    global entry_arquivo
+    global caminho_arquivo_selecionado
     # Abre o explorador de arquivos na pasta "emails"
     pasta_emails = './emails'
     if not os.path.exists(pasta_emails):
@@ -306,36 +299,35 @@ def fazer_upload():
     else:
         print("Nenhum arquivo selecionado!")
 
-root = ctk.CTk()
+def criar_interface_mautic():
+    global entry_arquivo
+    root = ctk.CTk()
+    root.title("Upload de Arquivo Excel")
+    root.geometry("600x400")
 
-root.title("Upload de Arquivo Excel")
-root.geometry("600x400")
+    label_titulo = ctk.CTkLabel(root, text="Escolha o arquivo Excel para upload", font=("Arial", 14))
+    label_titulo.pack(pady=10)
 
-# Label
-label_titulo = ctk.CTkLabel(root, text="Escolha o arquivo Excel para upload", font=("Arial", 14))
-label_titulo.pack(pady=10)
+    entry_arquivo = ctk.CTkEntry(root, width=300)
+    entry_arquivo.pack(pady=5)
 
-# Caixa de texto para mostrar o caminho do arquivo selecionado
-entry_arquivo = ctk.CTkEntry(root, width=300)
-entry_arquivo.pack(pady=5)
+    botao_selecionar = ctk.CTkButton(
+        root, 
+        text="Converter para CSV", 
+        command=selecionar_e_converter,
+        font=("Arial", 14)
+    )
+    botao_selecionar.pack(pady=60)
 
-botao_selecionar = ctk.CTkButton(
-    root, 
-    text="Converter para CSV", 
-    command=selecionar_e_converter,
-    font=("Arial", 14)
-)
-botao_selecionar.pack(pady=60)
+    botao_abrir_pasta = ctk.CTkButton(root, text="Abrir Pasta 'emails'", command=abrir_pasta_emails)
+    botao_abrir_pasta.pack(pady=5)
 
-# Botão para abrir a pasta "emails"
-botao_abrir_pasta = ctk.CTkButton(root, text="Abrir Pasta 'emails'", command=abrir_pasta_emails)
-botao_abrir_pasta.pack(pady=5)
+    botao_upload = ctk.CTkButton(root, text="Fazer Upload", command=fazer_upload)
+    botao_upload.pack(pady=10)
 
-# Botão para fazer upload do arquivo (exemplo de ação)
-botao_upload = ctk.CTkButton(root, text="Fazer Upload", command=fazer_upload)
-botao_upload.pack(pady=10)
+    root.mainloop()
 
-root.mainloop()
+criar_interface_mautic()  # Chama a função para criar a interface
 
 
 
