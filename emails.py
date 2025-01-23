@@ -32,38 +32,37 @@ from tkinter import filedialog
 import cv2
 import numpy as np
 
-def converter_para_csv(pasta):
-    # Verifica se a pasta existe
-    if not os.path.exists(pasta):
-        print(f"A pasta '{pasta}' não existe.")
-        return
+def converter_para_csv(arquivo_excel):
+    try:
+        # Carrega o arquivo Excel
+        df = pd.read_excel(arquivo_excel)
+
+        # Cria a pasta "emails" no diretório atual, se não existir
+        pasta_destino = "./emails"
+        if not os.path.exists(pasta_destino):
+            os.makedirs(pasta_destino)
+
+        # Define o nome do arquivo CSV dentro da pasta "emails"
+        nome_arquivo = os.path.basename(arquivo_excel)  # Nome do arquivo Excel
+        nome_csv = os.path.splitext(nome_arquivo)[0] + ".csv"
+        caminho_csv = os.path.join(pasta_destino, nome_csv)
+
+        # Salva o arquivo como CSV na pasta "emails"
+        df.to_csv(caminho_csv, index=False, encoding='utf-8')
+        messagebox.showinfo("Sucesso", f"Arquivo convertido para CSV com sucesso!\nSalvo em: {caminho_csv}")
+    except Exception as e:
+        messagebox.showerror("Erro", f"Erro ao converter o arquivo: {e}")
+
+def selecionar_e_converter():
+    # Abre o explorador de arquivos para selecionar o arquivo Excel
+    arquivo_selecionado = filedialog.askopenfilename(
+        title="Selecione um arquivo Excel",
+        filetypes=(("Arquivos Excel", "*.xlsx *.xls"), ("Todos os Arquivos", "*.*"))
+    )
     
-    # Lista todos os arquivos na pasta
-    arquivos = os.listdir(pasta)
-    
-    for arquivo in arquivos:
-        caminho_arquivo = os.path.join(pasta, arquivo)
-        
-        # Verifica se o arquivo é do tipo Excel (pode ser .xls ou .xlsx)
-        if arquivo.endswith('.xlsx') or arquivo.endswith('.xls'):
-            try:
-                # Carrega o arquivo Excel
-                df = pd.read_excel(caminho_arquivo)
-                
-                # Define o nome do novo arquivo CSV
-                nome_csv = arquivo.replace('.xlsx', '.csv').replace('.xls', '.csv')
-                caminho_csv = os.path.join(pasta, nome_csv)
-                
-                # Salva como CSV
-                df.to_csv(caminho_csv, index=False, encoding='utf-8')
-                print(f"Arquivo {arquivo} convertido para CSV com sucesso!")
-            except Exception as e:
-                print(f"Erro ao converter o arquivo {arquivo}: {e}")
-
-# Chama a função passando o caminho da pasta "emails"
-pasta_emails = './emails'
-
-
+    if arquivo_selecionado:
+        # Chama a função para converter o arquivo selecionado
+        converter_para_csv(arquivo_selecionado)
 
 def enviar_emails():
     driver = webdriver.Chrome()
@@ -89,6 +88,7 @@ def enviar_emails():
     enter.click()
 
     sleep(4)
+
 
     contacts = WebDriverWait(driver,5).until(
         EC.element_to_be_clickable((By.XPATH,"//a[@data-menu-link='mautic_contact_index']"))
@@ -146,7 +146,7 @@ def enviar_emails():
 
     
     option_segmento = WebDriverWait(driver, 5).until(
-        EC.presence_of_element_located((By.XPATH, "//li[contains(text(), 'Teste Mautic 2')]"))  # Ajuste o texto conforme necessário
+        EC.presence_of_element_located((By.XPATH, "//li[contains(text(), 'teste_mautic')]"))  # Ajuste o texto conforme necessário
     )
     option_segmento.click()
 
@@ -162,12 +162,15 @@ def enviar_emails():
         EC.presence_of_element_located((By.XPATH, "//li[contains(text(), 'Email')]"))  
     )
     option_email.click()
+    sleep(3)
 
     # Selecionar a coluna de razão social
-    razao_social_coluna = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, "//div[@id='lead_field_import_razao_social_chosen']"))
-    )
-    razao_social_coluna.click()
+    #razao_social_coluna = WebDriverWait(driver, 5).until(
+        #EC.presence_of_element_located((By.XPATH, "//div[@id='lead_field_import_razao_social_chosen']"))
+    #)
+    #razao_social_coluna.click()
+
+    pyautogui.click(992,616, duration=1)
     sleep(1)
 
     pyautogui.write('Company Name')
@@ -202,6 +205,65 @@ def enviar_emails():
     driver.quit()
 
 def monitorar_elemento(xpath, url, driver):
+    while True:
+        try:
+            # Procura pelo elemento usando o XPath
+            elemento = driver.find_element(By.XPATH, xpath)
+            if elemento.is_displayed():
+                print("Elemento encontrado! Texto:", elemento.text)
+                sleep(5)
+                driver.quit()
+                sleep(3)
+                driver.get('https://marilirequiaseguros.com.br/mautic/s/login')
+                driver.maximize_window()
+
+
+                login = 'luiz.logika@gmail.com'
+                password = 'Dev123@'
+                logar = WebDriverWait(driver,5).until(
+                    EC.element_to_be_clickable((By.XPATH,"//input[@id='username']"))
+                )
+                logar.send_keys(login)
+
+                password_enter = WebDriverWait(driver,5).until(
+                    EC.element_to_be_clickable((By.XPATH,"//input[@type='password']"))
+                )
+                password_enter.send_keys(password)
+
+                enter = WebDriverWait(driver,5).until(
+                    EC.element_to_be_clickable((By.XPATH,"//button[@class='btn btn-lg btn-primary btn-block']"))
+                )
+                enter.click()
+                canais_dropdown = WebDriverWait(driver,5).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "a#mautic_channels_root .arrow.pull-right.text-right"))
+                )
+                canais_dropdown.click()
+                sleep(2)
+
+                emails = WebDriverWait(driver,5).until(
+                    EC.element_to_be_clickable((By.XPATH,"//a[@data-menu-link='mautic_email_index']"))
+                )
+                emails.click()
+                sleep(5)
+
+                tr_element = driver.find_element(By.XPATH, "//td[text()='38']/ancestor::tr")
+                button = tr_element.find_element(By.CSS_SELECTOR, "button.dropdown-toggle")  # Encontra o botão dentro do tr
+                WebDriverWait(driver, 10).until(EC.element_to_be_clickable(button)).click()
+                sleep(2)
+
+                link_enviar = driver.find_element(By.XPATH, "//td[text()='39']/ancestor::tr//a[@href='/mautic/s/emails/send/39']")
+
+                # Garantir que o link seja clicável e clicar nele
+                WebDriverWait(driver, 10).until(EC.element_to_be_clickable(link_enviar)).click()
+                monitorar_elemento_envio_emails(xpath, url, driver)
+                break
+        except NoSuchElementException:
+            print("Elemento não encontrado, tentando novamente em 30 segundos...")
+
+        # Aguarda 30 segundos antes de tentar novamente
+        time.sleep(30)
+
+def monitorar_elemento_envio_emails(xpath, url, driver):
     while True:
         try:
             # Procura pelo elemento usando o XPath
@@ -247,7 +309,7 @@ def fazer_upload():
 root = ctk.CTk()
 
 root.title("Upload de Arquivo Excel")
-root.geometry("400x200")
+root.geometry("600x400")
 
 # Label
 label_titulo = ctk.CTkLabel(root, text="Escolha o arquivo Excel para upload", font=("Arial", 14))
@@ -256,6 +318,14 @@ label_titulo.pack(pady=10)
 # Caixa de texto para mostrar o caminho do arquivo selecionado
 entry_arquivo = ctk.CTkEntry(root, width=300)
 entry_arquivo.pack(pady=5)
+
+botao_selecionar = ctk.CTkButton(
+    root, 
+    text="Converter para CSV", 
+    command=selecionar_e_converter,
+    font=("Arial", 14)
+)
+botao_selecionar.pack(pady=60)
 
 # Botão para abrir a pasta "emails"
 botao_abrir_pasta = ctk.CTkButton(root, text="Abrir Pasta 'emails'", command=abrir_pasta_emails)
