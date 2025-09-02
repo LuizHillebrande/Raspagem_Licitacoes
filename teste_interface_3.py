@@ -41,7 +41,6 @@ from datetime import datetime
 import logging
 
 import customtkinter as ctk
-from tkinter import messagebox
 from PIL import Image
 import openpyxl
 import os
@@ -1506,7 +1505,10 @@ def consulta_cnpj_gratis(label_contador, janela):
     arquivos = glob.glob("cnpjs_unicos*.xlsx")
     
     if not arquivos:
-        messagebox.showwarning("Atenção", "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJ duplicados!")
+        messagebox.showwarning(
+            "Atenção", 
+            "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJs duplicados!"
+        )
         return
 
     options = webdriver.ChromeOptions()
@@ -1522,36 +1524,61 @@ def consulta_cnpj_gratis(label_contador, janela):
 
     try:
         for arquivo in arquivos:
-            if os.path.exists(arquivo):
-                df = pd.read_excel(arquivo)
+            if not os.path.exists(arquivo):
+                continue
 
-                for cnpj in df.iloc[:, 0]:  # Segunda coluna
-                    cnpj_limpo = limpar_cnpj(cnpj)
-                    if cnpj_limpo:
-                        link = f"https://consulta.guru/consultar-cnpj-gratis/{cnpj_limpo}"
-                        driver.get(link)
-                        sleep(5)
+            df = pd.read_excel(arquivo)
+            
+            for cnpj in df.iloc[:, 0]:
+                cnpj_limpo = limpar_cnpj(cnpj)
+                if not cnpj_limpo:
+                    continue
 
-                        try:
-                            email_element = driver.find_element(By.XPATH, '//p[contains(text(), "@")]')
-                            email = email_element.text.strip()
+                link = f"https://consulta.guru/consultar-cnpj-gratis/{cnpj_limpo}"
+                driver.get(link)
+                sleep(5)
 
-                            # Capturando a razão social
-                            razao_social_element = driver.find_element(By.XPATH, '//div[@id="overview"]//h1')
-                            razao_social = razao_social_element.text.strip()
+                # --- Captura do email ---
+                email = None
+                try:
+                    email_element = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located(
+                            (By.XPATH, '//span[contains(@class,"break-all") and contains(text(), "@")]')
+                        )
+                    )
+                    email_text = email_element.text.strip()
+                    match = re.search(r'[\w\.-]+@[\w\.-]+', email_text)
+                    email = match.group(0) if match else None
+                    print(f"[INFO] Email do CNPJ {cnpj_limpo}: {email}")
+                except Exception as e:
+                    print(f"[WARN] Não foi possível capturar email para {cnpj_limpo}: {e}")
+                    email = None
 
-                            if email not in emails_unicos:
-                                emails_unicos.add(email)
-                                resultados.append({"Razao Social": razao_social, "Email": email, "CNPJ": cnpj_limpo})
-                                total_emails += 1
-                                label_contador.configure(text=f"E-mails raspados: {total_emails}")
-                                janela.update()
-                        except Exception:
-                            print(f"Erro ao encontrar o e-mail ou razão social para o CNPJ: {cnpj_limpo}")
-                            pass  # Se não achar, continua
+                # --- Captura da razão social ---
+                try:
+                    razao_social_element = driver.find_element(
+                        By.XPATH, '//div[@id="overview"]//h1'
+                    )
+                    razao_social = razao_social_element.text.strip()
+                    print(f"[INFO] Razão social do CNPJ {cnpj_limpo}: {razao_social}")
+                except Exception as e:
+                    print(f"[WARN] Razão social não encontrada para {cnpj_limpo}: {e}")
+                    razao_social = "Não encontrado"
 
-                        salvar_emails(resultados)
-                        sleep(12)
+                # --- Adiciona resultado se email ainda não foi capturado ---
+                if email not in emails_unicos:
+                    emails_unicos.add(email)
+                    resultados.append({
+                        "Razao Social": razao_social,
+                        "Email": email,
+                        "CNPJ": cnpj_limpo
+                    })
+                    total_emails += 1
+                    label_contador.configure(text=f"E-mails raspados: {total_emails}")
+                    janela.update()
+
+                salvar_emails(resultados)
+                sleep(12)
 
         salvar_emails(resultados)
     finally:
@@ -1561,7 +1588,10 @@ def consulta_cnpj_ja(label_contador, janela):
     arquivos = glob.glob("cnpjs_unicos*.xlsx")
 
     if not arquivos:
-        messagebox.showwarning("Atenção", "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJ duplicados!")
+        messagebox.showwarning(
+            "Atenção", 
+            "O arquivo 'cnpjs_unicos.xlsx' não foi encontrado! Elimine os CNPJs duplicados!"
+        )
         return
 
     options = webdriver.ChromeOptions()
@@ -1577,43 +1607,67 @@ def consulta_cnpj_ja(label_contador, janela):
 
     try:
         for arquivo in arquivos:
-            if os.path.exists(arquivo):
-                df = pd.read_excel(arquivo)
+            if not os.path.exists(arquivo):
+                continue
 
-                for cnpj in df.iloc[:, 0]:  # Segunda coluna
-                    cnpj_limpo = limpar_cnpj(cnpj)
-                    if cnpj_limpo:
-                        link = f"https://cnpja.com/office/{cnpj_limpo}"
-                        driver.get(link)
-                        sleep(3)
+            df = pd.read_excel(arquivo)
 
-                        try:
-                            email_element = WebDriverWait(driver, 10).until(
-                                EC.presence_of_element_located((By.XPATH, "//span[contains(text(), '@')]"))
-                            )
-                            email = email_element.text.strip()
+            for cnpj in df.iloc[:, 0]:  # Primeira coluna
+                cnpj_limpo = limpar_cnpj(cnpj)
+                if not cnpj_limpo:
+                    continue
 
-                            # Capturando a razão social
-                            razao_social_element = driver.find_element(By.XPATH, '//div[@class="inline cursor-copy "]/span')
-                            razao_social = razao_social_element.text.strip()
+                link = f"https://cnpja.com/office/{cnpj_limpo}"
+                driver.get(link)
+                sleep(3)
 
-                            if email not in emails_unicos:
-                                if email != 'contato@cnpja.com':
-                                    emails_unicos.add(email)
-                                    resultados.append({"Razao Social": razao_social, "Email": email, "CNPJ": cnpj_limpo})
-                                    total_emails += 1
-                                    label_contador.configure(text=f"E-mails raspados: {total_emails}")
-                                    janela.update()
-                        except Exception:
-                            print(f"Erro ao encontrar o e-mail ou razão social para o CNPJ: {cnpj_limpo}")
-                            pass  # Se não achar, continua
+                # --- Captura do email ---
+                email = None
+                try:
+                    email_element = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located(
+                            (By.XPATH, '//span[contains(@class,"break-all") and contains(text(), "@")]')
+                        )
+                    )
+                    email_text = email_element.text.strip()
+                    match = re.search(r'[\w\.-]+@[\w\.-]+', email_text)
+                    email = match.group(0) if match else None
+                    print(f"[INFO] Email do CNPJ {cnpj_limpo}: {email}")
+                except Exception as e:
+                    print(f"[WARN] Não foi possível capturar email para {cnpj_limpo}: {e}")
+                    email = None
 
-                        salvar_emails(resultados)
-                        sleep(12)
+                # --- Captura da razão social ---
+                try:
+                    razao_social_element = driver.find_element(
+                        By.XPATH, '//h3[contains(@class,"scroll-m-20") and contains(@class,"font-semibold")]'
+                    )
+                    razao_social = razao_social_element.text.strip()
+                    print(f"[INFO] Razão social do CNPJ {cnpj_limpo}: {razao_social}")
+                except Exception as e:
+                    print(f"[WARN] Razão social não encontrada para {cnpj_limpo}: {e}")
+                    razao_social = "Não encontrado"
+
+                # --- Adiciona resultado se email válido ---
+                if email and email not in emails_unicos and email != 'contato@cnpja.com':
+                    emails_unicos.add(email)
+                    resultados.append({
+                        "Razao Social": razao_social,
+                        "Email": email,
+                        "CNPJ": cnpj_limpo
+                    })
+                    total_emails += 1
+                    label_contador.configure(text=f"E-mails raspados: {total_emails}")
+                    janela.update()
+
+                salvar_emails(resultados)
+                sleep(12)
 
         salvar_emails(resultados)
+
     finally:
         driver.quit()
+
 
 
 button_site1 = ctk.CTkButton(

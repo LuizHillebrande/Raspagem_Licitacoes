@@ -7,7 +7,7 @@ from tkinter import messagebox
 from time import sleep
 import random
 import customtkinter as ctk
-import re
+import re37
 from selenium.webdriver.common.action_chains import ActionChains
 
 def verifica_ajudicacao(driver, root, label_status, cnpjs_set):
@@ -16,14 +16,14 @@ def verifica_ajudicacao(driver, root, label_status, cnpjs_set):
     try:
         elementos_situacao = WebDriverWait(driver, 5).until(
             EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "div[data-test='situacao-proposta']"))
-        )
-
+        )mo
+        
         for elemento_situacao in elementos_situacao:
             situacao_texto = elemento_situacao.text.strip()
             if situacao_texto.lower() == "adjudicada":  # Só pega o CNPJ se a situação for "adjudicada"
                 adjudicada_encontrada = True
                 print("A proposta está adjudicada. Realizando ações subsequentes...")
-
+    
                 try:
                     container = elemento_situacao.find_element(By.XPATH, "./ancestor::div[contains(@data-test, 'propostaItemEmSelecaoFornecedores')]")
                     container_cnpj = WebDriverWait(container, 10).until(
