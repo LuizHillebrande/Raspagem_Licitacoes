@@ -440,14 +440,23 @@ ctk.set_default_color_theme("dark-blue")
 
 cnpj_count = 0
 
+# Variáveis globais para controlar a pausa da raspagem
+pausar_raspagem_pncp = False
+driver_pncp = None  # Variável global para armazenar o driver
+
+# Variáveis globais para controlar a pausa da raspagem BLL Compras
+pausar_raspagem_bll = False
+driver_bll = None  # Variável global para armazenar o driver BLL
+
 # Lista de sites de licitação/contratos
 sites_licitacao = ["Portal Nacional de Contratações Públicas", "Outros Sites de Licitação"]
 
 
 # Função para realizar a raspagem do Portal Nacional de Contratações Públicas
 def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
-    global cnpj_count
-    driver = webdriver.Chrome()
+    global cnpj_count, pausar_raspagem_pncp, driver_pncp, cnpj_label, intervalo_label
+    pausar_raspagem_pncp = False  # Resetar a flag de pausa ao iniciar
+    driver_pncp = webdriver.Chrome()
 
     data_atual = datetime.now().strftime("%d-%m-%Y")
     nome_arquivo = f"dados_fornecedores_{data_atual}.xlsx"  # Nome com data no final
@@ -458,27 +467,35 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
     ws.append(["Link", "CNPJ", "Razão Social", "Data de Divulgação no PNCP", "Data de Assinatura"])
 
     for pagina in range(1, 1000):  # De 1 a 999
+        # Verificar se deve pausar antes de processar cada página
+        while pausar_raspagem_pncp:
+            time.sleep(1)  # Aguarda 1 segundo e verifica novamente
+        
         url = f'https://pncp.gov.br/app/contratos?q=&pagina={pagina}'
-        driver.get(url)
+        driver_pncp.get(url)
 
         # Aguardar o carregamento dos elementos
         time.sleep(3)  # Espera de 3 segundos para garantir que a página carregue
 
         try:
             # Encontrar os botões únicos
-            botoes = driver.find_elements(By.XPATH, "//a[contains(@class, 'br-item') and contains(@title, 'Acessar item.')]")
+            botoes = driver_pncp.find_elements(By.XPATH, "//a[contains(@class, 'br-item') and contains(@title, 'Acessar item.')]")
             botoes_unicos = list(dict.fromkeys([botao.get_attribute('href') for botao in botoes]))  # Remove duplicatas
             
             print(f"Página {pagina}: Total de botões encontrados: {len(botoes_unicos)}")
 
             for i, link in enumerate(botoes_unicos, start=1):
+                # Verificar se deve pausar antes de processar cada item
+                while pausar_raspagem_pncp:
+                    time.sleep(1)  # Aguarda 1 segundo e verifica novamente
+                
                 try:
-                    driver.get(link)
+                    driver_pncp.get(link)
                     time.sleep(2)  # Espera um pouco para a página carregar
 
                     try:
                         # Extrair o CNPJ
-                        cnpj_element = WebDriverWait(driver, 5).until(
+                        cnpj_element = WebDriverWait(driver_pncp, 5).until(
                             EC.presence_of_element_located((By.XPATH, "//strong[contains(text(), 'CNPJ/CPF:')]/following-sibling::span"))
                         )
                         cnpj = cnpj_element.text
@@ -491,7 +508,7 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
 
                     try:
                         # Extrair a Razão Social
-                        razao_social_element = WebDriverWait(driver, 5).until(
+                        razao_social_element = WebDriverWait(driver_pncp, 5).until(
                             EC.presence_of_element_located((By.XPATH, "//strong[contains(text(), 'Nome/Razão social:')]/following-sibling::span"))
                         )
                         razao_social = razao_social_element.text
@@ -500,13 +517,13 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
                         print(f"Botão {i}: Erro ao extrair a Razão Social - {e}")
                         razao_social = "Não encontrado"
 
-                    datas_pagina = extrair_datas_da_pagina(driver)
+                    datas_pagina = extrair_datas_da_pagina(driver_pncp)
                     if datas_pagina:
                         data_divulgacao = datas_pagina[0].strftime("%d/%m/%Y")  # Usando a primeira data extraída
                     else:
                         data_divulgacao = "Não encontrada"
                     
-                    data_texto = extrair_data_assinatura(driver)
+                    data_texto = extrair_data_assinatura(driver_pncp)
 
                     # Atualizar intervalo de datas
                     atualizar_intervalo_datas(datas_pagina)
@@ -526,12 +543,25 @@ def iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas():
             print(f"Erro ao acessar a página {pagina}: {e}")
 
     # Salvar a planilha
-    
-    driver.quit()
+    if driver_pncp:
+        driver_pncp.quit()
+        driver_pncp = None
     messagebox.showinfo("Concluído", "Raspagem concluída com sucesso!")
 
 def iniciar_raspagem():
     threading.Thread(target=iniciar_raspagem_Portal_Nacional_de_Contratacoes_Publicas, daemon=True).start()
+
+def pausar_raspagem_pncp_func():
+    """Função para pausar a raspagem"""
+    global pausar_raspagem_pncp
+    pausar_raspagem_pncp = True
+    print("Raspagem pausada")
+
+def retomar_raspagem_pncp_func():
+    """Função para retomar a raspagem"""
+    global pausar_raspagem_pncp
+    pausar_raspagem_pncp = False
+    print("Raspagem retomada")
 
 # Criando a interface gráfica com CustomTkinter
 def criar_interface_pncp():
@@ -541,7 +571,7 @@ def criar_interface_pncp():
     # Configuração da janela
     janela = ctk.CTk()
     janela.title("Raspagem de Dados de Licitação")
-    janela.geometry("500x300")
+    janela.geometry("500x350")
 
     # Título
     titulo = ctk.CTkLabel(janela, text="Raspagem PNCP", font=("Arial", 18))
@@ -549,7 +579,35 @@ def criar_interface_pncp():
 
     # Botão para iniciar a raspagem
     btn_iniciar = ctk.CTkButton(janela, text="Iniciar Raspagem", command=iniciar_raspagem, font=("Arial", 16))
-    btn_iniciar.pack(pady=20)
+    btn_iniciar.pack(pady=10)
+
+    # Frame para os botões de controle
+    frame_controle = ctk.CTkFrame(janela, fg_color="transparent")
+    frame_controle.pack(pady=10)
+
+    # Botão para pausar a raspagem
+    btn_pausar = ctk.CTkButton(
+        frame_controle, 
+        text="Pausar", 
+        command=pausar_raspagem_pncp_func, 
+        font=("Arial", 14),
+        fg_color="#ff9800",
+        hover_color="#f57c00",
+        width=120
+    )
+    btn_pausar.pack(side="left", padx=5)
+
+    # Botão para retomar a raspagem
+    btn_retomar = ctk.CTkButton(
+        frame_controle, 
+        text="Retomar", 
+        command=retomar_raspagem_pncp_func, 
+        font=("Arial", 14),
+        fg_color="#4caf50",
+        hover_color="#388e3c",
+        width=120
+    )
+    btn_retomar.pack(side="left", padx=5)
 
     # Label para mostrar o número de CNPJs extraídos
     cnpj_label = ctk.CTkLabel(janela, text="CNPJs extraídos: 0", font=("Arial", 14))
@@ -624,6 +682,9 @@ def scroll_ate_resultados_estabilizarem(driver):
             resultado_atual = novo_resultado  # Atualiza o número de resultados
 
 def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs):
+    global pausar_raspagem_bll, driver_bll
+    
+    pausar_raspagem_bll = False  # Resetar a flag de pausa ao iniciar
 
     progresso_json = "progresso.json"
 
@@ -653,26 +714,26 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     }
     chrome_options.add_experimental_option("prefs", prefs)
 
-    driver = webdriver.Chrome(options=chrome_options)
-    driver.get('https://bllcompras.com/Process/ProcessSearchPublic?param1=0#')
-    driver.maximize_window()
+    driver_bll = webdriver.Chrome(options=chrome_options)
+    driver_bll.get('https://bllcompras.com/Process/ProcessSearchPublic?param1=0#')
+    driver_bll.maximize_window()
 
     
 
     # Aguarda até que o elemento de seleção de status esteja presente
-    select_element = WebDriverWait(driver, 10).until(
+    select_element = WebDriverWait(driver_bll, 10).until(
         EC.presence_of_element_located((By.ID, "fkStatus"))
     )
     select = Select(select_element)
     select.select_by_visible_text(status_processo)
 
     # Aguarda até que o botão de busca avançada seja clicável
-    busca_avancada = WebDriverWait(driver, 5).until(
+    busca_avancada = WebDriverWait(driver_bll, 5).until(
         EC.element_to_be_clickable((By.XPATH, "//a[@title='BUSCA AVANÇADA']"))
     )
     busca_avancada.click()
 
-    public_inicio = WebDriverWait(driver, 5).until(
+    public_inicio = WebDriverWait(driver_bll, 5).until(
         EC.element_to_be_clickable((By.XPATH, "//input[@data-target='#DateStart']"))
     )
     public_inicio.click()
@@ -680,7 +741,7 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     public_inicio.send_keys(data_inicio)
 
     # Preencher a data final
-    public_final = WebDriverWait(driver, 5).until(
+    public_final = WebDriverWait(driver_bll, 5).until(
         EC.element_to_be_clickable((By.XPATH, "//input[@data-target='#DateEnd']"))
     )
     public_final.click()
@@ -688,22 +749,22 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     public_final.send_keys(data_fim)
 
     # Aguarda até que o ícone de pesquisa seja clicável
-    icon = WebDriverWait(driver, 5).until(
+    icon = WebDriverWait(driver_bll, 5).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "button i.fas.fa-search"))
     )
     icon.click()
 
-    scroll_ate_resultados_estabilizarem(driver)
+    scroll_ate_resultados_estabilizarem(driver_bll)
 
     # Espera até que a lista de elementos de informações esteja carregada
-    WebDriverWait(driver, 10).until(
+    WebDriverWait(driver_bll, 10).until(
         EC.presence_of_all_elements_located((By.CSS_SELECTOR, "i.fas.fa-info-circle"))
     )
 
-    original_window = driver.current_window_handle
-    original_url = driver.current_url
+    original_window = driver_bll.current_window_handle
+    original_url = driver_bll.current_url
 
-    elements = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
+    elements = driver_bll.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
 
     pdfs_baixados = 0
     
@@ -711,37 +772,41 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
     pdfs_baixados = progresso["pdfs_baixados"]
 
     for index, element in enumerate(elements, start=1):
+        # Verificar se deve pausar antes de processar cada elemento
+        while pausar_raspagem_bll:
+            time.sleep(1)  # Aguarda 1 segundo e verifica novamente
+        
         print(f"Elemento {index} de {len(elements)}")
 
-        elements = driver.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
+        elements = driver_bll.find_elements(By.CSS_SELECTOR, "i.fas.fa-info-circle")
         element = elements[index]
         
         # Reencontrando o elemento antes de clicar para garantir que ele ainda é válido
-        element = WebDriverWait(driver, 10).until(
+        element = WebDriverWait(driver_bll, 10).until(
             EC.element_to_be_clickable(element)
         )
-        driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
-        action = ActionChains(driver)
+        driver_bll.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
+        action = ActionChains(driver_bll)
         action.move_to_element(element).click().perform()
         
         time.sleep(2)
         print("BOTAO 1 CLICADO")
         
 
-        WebDriverWait(driver, 10).until(
-        lambda driver: len(driver.window_handles) > 1  # Garantir que uma nova janela foi aberta
+        WebDriverWait(driver_bll, 10).until(
+        lambda d: len(d.window_handles) > 1  # Garantir que uma nova janela foi aberta
         )
         
         # Trocar para a nova janela
-        new_window = [window for window in driver.window_handles if window != original_window][0]
-        driver.switch_to.window(new_window)
+        new_window = [window for window in driver_bll.window_handles if window != original_window][0]
+        driver_bll.switch_to.window(new_window)
 
-        current_url = driver.current_url
+        current_url = driver_bll.current_url
         print("URL da nova janela:", current_url)
 
         try:
             # Exemplo: esperando por um botão que deve aparecer na nova janela
-            relatorios_button = WebDriverWait(driver, 20).until(
+            relatorios_button = WebDriverWait(driver_bll, 20).until(
                 EC.presence_of_element_located((By.XPATH, "//button[@title='Relatórios']"))
             )
             print("Elemento 'Relatórios' apareceu, a página foi carregada corretamente.")
@@ -755,7 +820,7 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
         
         try:
             # Aguarda a presença do elemento <b> e verifica o texto
-            mensagem_elemento = WebDriverWait(driver, 3).until(
+            mensagem_elemento = WebDriverWait(driver_bll, 3).until(
                 EC.presence_of_element_located((By.XPATH, "//b"))
             )
             mensagem_texto = mensagem_elemento.text
@@ -764,16 +829,16 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
             if "relatórios ainda não estão disponíveis" in mensagem_texto:
                 print("Relatórios não estão disponíveis. Pulando para o próximo item...")
                 pyautogui.hotkey('ctrl','w')
-                driver.switch_to.window(original_window)
+                driver_bll.switch_to.window(original_window)
                 continue  # Passa para o próximo elemento da lista
         except Exception:
             print("Elemento <b> não encontrado. Continuando o download...")
 
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver_bll, 10).until(
             EC.presence_of_all_elements_located((By.TAG_NAME, "tr"))
         )
 
-        linhas = driver.find_elements(By.TAG_NAME, "tr")
+        linhas = driver_bll.find_elements(By.TAG_NAME, "tr")
     
 
         for linha in linhas:
@@ -797,11 +862,11 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
                                 print("Botão de download encontrado. Tentando clicar...")
 
                                 # Realiza o scroll até o botão para garantir que ele esteja visível
-                                driver.execute_script("arguments[0].scrollIntoView(true);", botao_download)
+                                driver_bll.execute_script("arguments[0].scrollIntoView(true);", botao_download)
                                 time.sleep(1)
 
                                 # Realiza o clique com ActionChains
-                                ActionChains(driver).move_to_element(botao_download).click().perform()
+                                ActionChains(driver_bll).move_to_element(botao_download).click().perform()
                                 print("Download iniciado com sucesso.")
                                 pdfs_baixados += 1
                                 label_contador_pdfs.configure(text=f"PDFs    Baixados: {pdfs_baixados}")
@@ -824,12 +889,14 @@ def extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdf
 
         # Fecha a aba atual e retorna à aba original
         pyautogui.hotkey('ctrl', 'w')
-        driver.switch_to.window(original_window)
+        driver_bll.switch_to.window(original_window)
 
     # Espera um pouco mais para garantir que o download seja iniciado
     time.sleep(5)  # Pausa de 5 segundos antes de fechar o driver
-    scroll_ate_resultados_estabilizarem(driver)
-    driver.quit()  # Fechamento do driver após a execução
+    scroll_ate_resultados_estabilizarem(driver_bll)
+    if driver_bll:
+        driver_bll.quit()  # Fechamento do driver após a execução
+        driver_bll = None
 
 def extrair_cnpjs_pasta(pasta, nome_arquivo_saida, label_erro):
     """
@@ -921,14 +988,24 @@ def extrair_cnpjs(label_erro, tipo):
         label_erro.configure(text="Pasta de vencedores não encontrada!", text_color="red")
 
 
+def pausar_raspagem_bll_func():
+    """Função para pausar a raspagem BLL"""
+    global pausar_raspagem_bll
+    pausar_raspagem_bll = True
+    print("Raspagem BLL pausada")
+
+def retomar_raspagem_bll_func():
+    """Função para retomar a raspagem BLL"""
+    global pausar_raspagem_bll
+    pausar_raspagem_bll = False
+    print("Raspagem BLL retomada")
+
 def criar_interface():
     def iniciar_busca():
         # Coleta os valores da interface
         data_inicio = entry_data_inicio.get()
         data_fim = entry_data_fim.get()
         status_processo = combo_status.get()
-        extrair_bllcompras(data_inicio, data_fim, status_processo, label_contador_pdfs)
-
         
         # Validação simples 
         if not data_inicio or not data_fim or not status_processo:
@@ -938,15 +1015,15 @@ def criar_interface():
             label_erro.configure(text="Executando busca...", text_color="green")
             root.update()
 
-        # Executa o programa principal
-        extrair_bllcompras(data_inicio, data_fim, status_processo,label_contador_pdfs)
+        # Executa o programa principal em thread separada
+        threading.Thread(target=lambda: extrair_bllcompras(data_inicio, data_fim, status_processo, label_contador_pdfs), daemon=True).start()
 
        
     global root
     # Configuração da interface
     root = ctk.CTk()
     root.title("Busca BLL Compras")
-    root.geometry("400x300")
+    root.geometry("400x400")
     ctk.set_appearance_mode("Light")
 
     # Widgets
@@ -974,6 +1051,34 @@ def criar_interface():
     # Botão de executar
     btn_executar = ctk.CTkButton(root, text="Executar Busca", command=iniciar_busca)
     btn_executar.pack(pady=10)
+
+    # Frame para os botões de controle de pausa
+    frame_controle_bll = ctk.CTkFrame(root, fg_color="transparent")
+    frame_controle_bll.pack(pady=5)
+
+    # Botão para pausar a raspagem
+    btn_pausar_bll = ctk.CTkButton(
+        frame_controle_bll, 
+        text="Pausar", 
+        command=pausar_raspagem_bll_func, 
+        font=("Arial", 12),
+        fg_color="#ff9800",
+        hover_color="#f57c00",
+        width=100
+    )
+    btn_pausar_bll.pack(side="left", padx=5)
+
+    # Botão para retomar a raspagem
+    btn_retomar_bll = ctk.CTkButton(
+        frame_controle_bll, 
+        text="Retomar", 
+        command=retomar_raspagem_bll_func, 
+        font=("Arial", 12),
+        fg_color="#4caf50",
+        hover_color="#388e3c",
+        width=100
+    )
+    btn_retomar_bll.pack(side="left", padx=5)
 
     btn_extrair_cnpj_homologados = ctk.CTkButton(root, text="Extrair CNPJ Homologados", 
                                                  command=lambda: extrair_cnpjs(label_erro, 'homologados'))
@@ -1479,25 +1584,19 @@ def criar_interface_raspagem_emails():
 
 def salvar_emails(resultados):
     """
-    Salva os resultados no arquivo de e-mails, criando novos arquivos se o número de linhas exceder 2000.
+    Salva os resultados no arquivo de e-mails.
     """
-    nome_arquivo_base = "emails_vencedores"
-    arquivos_existentes = glob.glob(f"{nome_arquivo_base}_*.xlsx")
-    indice_arquivo = len(arquivos_existentes) + 1
-
-    if not arquivos_existentes:
-        nome_arquivo = f"{nome_arquivo_base}.xlsx"
-    else:
-        nome_arquivo = f"{nome_arquivo_base}_{indice_arquivo}.xlsx"
-
+    if not resultados:
+        return  # Não salva se não houver resultados
+    
+    nome_arquivo = "emails_vencedores.xlsx"
     df_resultados = pd.DataFrame(resultados)
-
+    
+    # Se o arquivo já existe, adiciona os novos resultados
     if os.path.exists(nome_arquivo):
         df_existente = pd.read_excel(nome_arquivo)
-        if len(df_existente) >= 2000:
-            indice_arquivo += 1
-            nome_arquivo = f"{nome_arquivo_base}_{indice_arquivo}.xlsx"
-
+        df_resultados = pd.concat([df_existente, df_resultados], ignore_index=True)
+    
     df_resultados.to_excel(nome_arquivo, index=False)
     print(f"E-mails salvos no arquivo '{nome_arquivo}'.")
 
@@ -1758,6 +1857,87 @@ button_raspagem_emails = ctk.CTkButton(
     hover_color="#005b99",  
 )
 button_raspagem_emails.pack(side="left", padx=10)
+
+def dividir_arquivos_em_partes():
+    """
+    Permite ao usuário selecionar arquivos Excel e dividi-los em partes de 2000 linhas cada.
+    """
+    # Abre o diálogo para selecionar arquivos
+    arquivos = filedialog.askopenfilenames(
+        title="Selecione os arquivos Excel para dividir",
+        filetypes=[("Arquivos Excel", "*.xlsx"), ("Todos os arquivos", "*.*")],
+        initialdir=os.getcwd()
+    )
+    
+    if not arquivos:
+        messagebox.showinfo("Informação", "Nenhum arquivo selecionado.")
+        return
+    
+    total_arquivos_criados = 0
+    
+    for arquivo in arquivos:
+        try:
+            # Lê o arquivo Excel
+            df = pd.read_excel(arquivo)
+            total_linhas = len(df)
+            
+            if total_linhas == 0:
+                messagebox.showwarning("Aviso", f"O arquivo {os.path.basename(arquivo)} está vazio.")
+                continue
+            
+            # Calcula quantos arquivos serão criados
+            num_partes = (total_linhas // 2000) + (1 if total_linhas % 2000 > 0 else 0)
+            
+            # Obtém o nome base do arquivo (sem extensão)
+            nome_base = os.path.splitext(os.path.basename(arquivo))[0]
+            diretorio = os.path.dirname(arquivo) if os.path.dirname(arquivo) else os.getcwd()
+            
+            # Divide o DataFrame em partes de 2000 linhas
+            for i in range(num_partes):
+                inicio = i * 2000
+                fim = min((i + 1) * 2000, total_linhas)
+                df_parte = df.iloc[inicio:fim]
+                
+                # Nome do arquivo de saída
+                if num_partes == 1:
+                    # Se for apenas uma parte e tiver menos de 2000 linhas, mantém o nome original com sufixo
+                    nome_arquivo_saida = f"{nome_base}_dividido.xlsx"
+                else:
+                    nome_arquivo_saida = f"{nome_base}_parte_{i+1}_de_{num_partes}.xlsx"
+                
+                caminho_saida = os.path.join(diretorio, nome_arquivo_saida)
+                df_parte.to_excel(caminho_saida, index=False)
+                total_arquivos_criados += 1
+                print(f"Arquivo criado: {caminho_saida} ({len(df_parte)} linhas)")
+            
+            messagebox.showinfo(
+                "Sucesso", 
+                f"Arquivo '{os.path.basename(arquivo)}' dividido em {num_partes} parte(s).\n"
+                f"Total de {total_arquivos_criados} arquivo(s) criado(s) até agora."
+            )
+            
+        except Exception as e:
+            messagebox.showerror(
+                "Erro", 
+                f"Erro ao processar o arquivo {os.path.basename(arquivo)}:\n{str(e)}"
+            )
+    
+    messagebox.showinfo(
+        "Concluído", 
+        f"Processo concluído!\nTotal de arquivos criados: {total_arquivos_criados}"
+    )
+
+button_dividir_arquivos = ctk.CTkButton(
+    footer_frame, 
+    text="Dividir Arquivos (2000 linhas)", 
+    command=dividir_arquivos_em_partes,
+    font=("Helvetica", 14), 
+    width=250, 
+    height=40, 
+    fg_color="#9c27b0",  
+    hover_color="#7b1fa2",  
+)
+button_dividir_arquivos.pack(side="left", padx=10)
 
 
 # Iniciar o loop principal da interface gráfica
